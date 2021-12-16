@@ -72,33 +72,65 @@ update msg model =
     case msg of
         ClickedField field ->
             let
-                _ =
-                    Debug.log "field" field
+                selectedPiece =
+                    if field.piece == model.selectedPiece then
+                        Nothing
+
+                    else
+                        field.piece
             in
-            ( { model | selectedPiece = field.piece }, Cmd.none )
+            ( { model
+                | selectedPiece = selectedPiece
+                , possibleMoves =
+                    Maybe.map (calculatePossibleMoves model.fields) selectedPiece
+                        |> Maybe.withDefault []
+              }
+            , Cmd.none
+            )
+
+
+calculatePossibleMoves : List Field -> Piece -> List Field
+calculatePossibleMoves fields selectedPiece =
+    case selectedPiece of
+        Pawn position ->
+            let
+                ( x, y ) =
+                    position
+
+                allowedPositions : List ( Int, Int )
+                allowedPositions =
+                    [ ( x + 1, y ) ]
+            in
+            fields
+                |> List.filter
+                    (\field ->
+                        List.any
+                            (\allowedPosition -> allowedPosition == field.position)
+                            allowedPositions
+                    )
 
 
 view : Model -> Html Msg
 view model =
-    Html.main_ [ Attr.class "w-full h-full flex justify-center items-center" ]
+    Html.main_ [ Attr.class "w-full h-full flex justify-center items-center select-none" ]
         [ Html.section
             [ Attr.class "border-4 border-indigo-200 cursor-pointer" ]
             (List.reverse (List.range 0 7)
-                |> List.map (viewRow model.fields model.selectedPiece)
+                |> List.map (viewRow model)
             )
         ]
 
 
-viewRow : List Field -> Maybe Piece -> Int -> Html Msg
-viewRow fields selectedPiece rowIndex =
-    fields
+viewRow : Model -> Int -> Html Msg
+viewRow model rowIndex =
+    model.fields
         |> List.filter (.position >> Tuple.first >> (==) rowIndex)
-        |> List.map (viewField selectedPiece)
+        |> List.map (viewField model.selectedPiece model.possibleMoves)
         |> Html.div [ Attr.class "flex" ]
 
 
-viewField : Maybe Piece -> Field -> Html Msg
-viewField selectedPiece field =
+viewField : Maybe Piece -> List Field -> Field -> Html Msg
+viewField selectedPiece possibleMoves field =
     let
         ( row, col ) =
             field.position
@@ -114,6 +146,10 @@ viewField selectedPiece field =
 
                 _ ->
                     False
+
+        maybeMove : Bool
+        maybeMove =
+            List.any ((==) field) possibleMoves
     in
     Html.div
         [ onClick (ClickedField field)
@@ -133,21 +169,30 @@ viewField selectedPiece field =
                 "border-0 border-transparent text-black"
             )
         ]
-        [ pieceToText field.piece ]
+        [ viewPieceAndMove field.piece maybeMove ]
 
 
-pieceToText : Maybe Piece -> Html msg
-pieceToText maybePiece =
+viewPieceAndMove : Maybe Piece -> Bool -> Html msg
+viewPieceAndMove maybePiece isMove =
     let
-        text =
+        pieceText : String
+        pieceText =
             case maybePiece of
                 Just (Pawn _) ->
                     "P"
 
                 Nothing ->
                     ""
+
+        moveText : String
+        moveText =
+            if isMove then
+                "O"
+
+            else
+                ""
     in
-    Html.text text
+    Html.text (pieceText ++ moveText)
 
 
 main =

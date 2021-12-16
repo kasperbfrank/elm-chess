@@ -20,7 +20,11 @@ type alias Model =
 
 
 type Msg
-    = ClickedField Field
+    = ClickedField ClickFieldEvent
+
+
+type alias ClickFieldEvent =
+    { field : Field, isMove : Bool }
 
 
 type alias Position =
@@ -70,7 +74,7 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ClickedField field ->
+        ClickedField { field, isMove } ->
             let
                 selectedPiece =
                     if field.piece == model.selectedPiece then
@@ -78,6 +82,8 @@ update msg model =
 
                     else
                         field.piece
+
+                -- TODO: Move field if isMove is True
             in
             ( { model
                 | selectedPiece = selectedPiece
@@ -147,12 +153,12 @@ viewField selectedPiece possibleMoves field =
                 _ ->
                     False
 
-        maybeMove : Bool
-        maybeMove =
+        isMove : Bool
+        isMove =
             List.any ((==) field) possibleMoves
     in
     Html.div
-        [ onClick (ClickedField field)
+        [ onClick (ClickedField (ClickFieldEvent field isMove))
         , Attr.class
             (if isBlack then
                 "bg-slate-700"
@@ -169,7 +175,7 @@ viewField selectedPiece possibleMoves field =
                 "border-0 border-transparent text-black"
             )
         ]
-        [ viewPieceAndMove field.piece maybeMove ]
+        [ viewPieceAndMove field.piece isMove ]
 
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg

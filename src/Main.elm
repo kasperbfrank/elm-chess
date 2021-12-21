@@ -149,12 +149,12 @@ view model =
     Html.main_ [ Attr.class "w-full h-full flex justify-center items-center select-none" ]
         [ Html.section
             []
-            (List.reverse (List.range 1 8) |> List.map (viewRow2 model))
+            (List.reverse (List.range 1 8) |> List.map (viewRow model))
         ]
 
 
-viewRow2 : Model -> Int -> Html Msg
-viewRow2 model rowIndex =
+viewRow : Model -> Int -> Html Msg
+viewRow model rowIndex =
     Html.div [ Attr.class "flex" ]
         (List.range 1 8 |> List.map (viewCell model rowIndex))
 

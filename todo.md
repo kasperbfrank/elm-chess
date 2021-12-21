@@ -1,6 +1,5 @@
 ## MVP
-- [ ] Convert fields to just just be a table
-- [ ] Store pieces in Dict Position Piece
+- [x] Store pieces in Dict Position Piece
 - [ ] Correct row / col naming, e.g. (A, 1)
 - [ ] Fn for translating e.g. A -> 1
 - [ ] Make recursive function to figure return possible moves.

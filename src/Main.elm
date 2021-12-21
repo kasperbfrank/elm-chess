@@ -9,7 +9,7 @@ import Html.Events exposing (onClick)
 
 
 type Piece
-    = Pawn Position
+    = Pawn
 
 
 type alias Field =
@@ -17,19 +17,23 @@ type alias Field =
 
 
 type alias Model =
-    { fields : List Field
-    , pieces : Dict String Piece
-    , selectedPiece : Maybe Piece
+    { pieces : Dict String Piece
+    , selection : Maybe Selection
     , possibleMoves : List Position
     }
 
 
 type Msg
-    = ClickedField ClickFieldEvent
+    = ClickedFieldWithPiece Piece Position
+    | ClickedFieldWithMove MovePieceEvent
 
 
-type alias ClickFieldEvent =
-    { piece : Maybe Piece, isMove : Bool }
+type alias Selection =
+    { piece : Piece, position : Position }
+
+
+type alias MovePieceEvent =
+    { piece : Piece, from : Position, to : Position }
 
 
 type alias Position =
@@ -64,47 +68,23 @@ createPieceFromInitPosition : Position -> Maybe Piece
 createPieceFromInitPosition position =
     case position of
         ( 2, _ ) ->
-            Just (Pawn position)
+            Just Pawn
 
         ( 7, _ ) ->
-            Just (Pawn position)
+            Just Pawn
 
         _ ->
             Nothing
 
 
-createPieceWithPosition : Position -> Field
-createPieceWithPosition position =
+createPieceWithIndexTuple : Position -> Maybe ( String, Piece )
+createPieceWithIndexTuple position =
     let
-        piece : Maybe Piece
-        piece =
+        maybePiece : Maybe Piece
+        maybePiece =
             createPieceFromInitPosition position
     in
-    { position = position, piece = piece }
-
-
-initFields : List Field
-initFields =
-    List.range 0 7
-        |> List.map (\n -> ( n, List.range 0 7 ))
-        |> List.concatMap
-            (\( rowIndex, colIndexes ) ->
-                colIndexes
-                    |> List.map (\colIndex -> ( rowIndex, colIndex ))
-            )
-        |> List.map createPieceWithPosition
-
-
-getPosition : Piece -> Position
-getPosition piece =
-    case piece of
-        Pawn position_ ->
-            position_
-
-
-createTuple : Piece -> ( String, Piece )
-createTuple piece =
-    ( positionToIndex (getPosition piece), piece )
+    Maybe.map (Tuple.pair (positionToIndex position)) maybePiece
 
 
 initDict : Dict String Piece
@@ -116,81 +96,58 @@ initDict =
                 colIndexes
                     |> List.map (\colIndex -> ( rowIndex, colIndex ))
             )
-        |> List.map createPieceFromInitPosition
+        |> List.map createPieceWithIndexTuple
         |> List.filterMap identity
-        |> List.map createTuple
         |> Dict.fromList
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { fields = initFields, pieces = initDict, selectedPiece = Nothing, possibleMoves = [] }, Cmd.none )
+    ( { pieces = initDict, selection = Nothing, possibleMoves = [] }, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ClickedField { piece, isMove } ->
+        ClickedFieldWithPiece piece position ->
             let
-                selectedPiece =
-                    if piece == model.selectedPiece then
-                        Nothing
+                ( selectedPiece, possibleMoves ) =
+                    if Just piece == Maybe.map .piece model.selection then
+                        ( Nothing, [] )
 
                     else
-                        piece
-
-                -- TODO: Move field if isMove is True
-                updated =
-                    if not isMove && isJust selectedPiece then
-                        model.pieces
-
-                    else
-                        model.pieces |> Dict.remove (positionToIndex (getPosition piece))
+                        ( Just (Selection piece position), calculatePossibleMoves piece position )
             in
             ( { model
-                | selectedPiece = selectedPiece
-                , possibleMoves =
-                    Maybe.map calculatePossibleMoves selectedPiece
-                        |> Maybe.withDefault []
+                | selection = selectedPiece
+                , possibleMoves = possibleMoves
+              }
+            , Cmd.none
+            )
+
+        ClickedFieldWithMove { piece, from, to } ->
+            ( { model
+                | pieces =
+                    Dict.remove (positionToIndex from) model.pieces
+                        |> Dict.insert (positionToIndex to) piece
+                , possibleMoves = []
+                , selection = Nothing
               }
             , Cmd.none
             )
 
 
-calculatePossibleMoves_OLD : List Field -> Piece -> List Field
-calculatePossibleMoves_OLD fields selectedPiece =
+calculatePossibleMoves : Piece -> Position -> List Position
+calculatePossibleMoves selectedPiece ( x, y ) =
     case selectedPiece of
-        Pawn position ->
-            let
-                ( x, y ) =
-                    position
-
-                allowedPositions : List ( Int, Int )
-                allowedPositions =
-                    [ ( x + 1, y ) ]
-            in
-            fields
-                |> List.filter
-                    (\field ->
-                        List.any
-                            (\allowedPosition -> allowedPosition == field.position)
-                            allowedPositions
-                    )
-
-
-calculatePossibleMoves : Piece -> List Position
-calculatePossibleMoves selectedPiece =
-    let
-        ( x, y ) =
-            getPosition selectedPiece
-    in
-    [ ( x + 1, y ) ]
+        Pawn ->
+            [ ( x + 1, y ) ]
 
 
 view : Model -> Html Msg
 view model =
     Html.main_ [ Attr.class "w-full h-full flex justify-center items-center select-none" ]
-        [ Html.table
+        [ Html.section
             []
             (List.reverse (List.range 1 8) |> List.map (viewRow2 model))
         ]
@@ -198,7 +155,7 @@ view model =
 
 viewRow2 : Model -> Int -> Html Msg
 viewRow2 model rowIndex =
-    Html.tr []
+    Html.div [ Attr.class "flex" ]
         (List.range 1 8 |> List.map (viewCell model rowIndex))
 
 
@@ -222,82 +179,43 @@ viewCell model rowIndex colIndex =
         isMove =
             List.any ((==) ( rowIndex, colIndex )) model.possibleMoves
 
-        -- TODO: Only assign click handlers to cells when there is an action.
-        -- If move, assign click handler with move action.
-        -- If to lift piece, assign click handler with select piece action
+        isSelectedField =
+            Maybe.map .position model.selection == Just ( rowIndex, colIndex )
+
+        styles : List (Attribute msg)
+        styles =
+            [ Attr.class "h-20 w-20 transition-all flex justify-center items-center text-3xl font-bold"
+            , Attr.class
+                (if isSelectedField then
+                    "border-4 border-emerald-400 text-emerald-400"
+
+                 else
+                    "text-black"
+                )
+            , cellClass
+            ]
+
+        eventHandlers : List (Attribute Msg)
+        eventHandlers =
+            if isMove then
+                case model.selection of
+                    Just { piece, position } ->
+                        [ onClick (ClickedFieldWithMove (MovePieceEvent piece position ( rowIndex, colIndex ))) ]
+
+                    Nothing ->
+                        []
+
+            else
+                case maybePiece of
+                    Just piece ->
+                        [ onClick (ClickedFieldWithPiece piece ( rowIndex, colIndex )) ]
+
+                    Nothing ->
+                        []
     in
-    Html.td
-        [ onClick (ClickedField (ClickFieldEvent maybePiece isMove))
-        , Attr.class "h-20 w-20 transition-all text-center align-middle text-3xl font-bold"
-        , Attr.class
-            (if model.selectedPiece /= Nothing && maybePiece == model.selectedPiece then
-                "border-4 border-emerald-400 text-emerald-400"
-
-             else
-                "border-0 border-transparent text-black"
-            )
-        , cellClass
-        ]
+    Html.div
+        (styles ++ eventHandlers)
         [ viewPieceAndMove maybePiece isMove ]
-
-
-
---view : Model -> Html Msg
---view model =
---    Html.main_ [ Attr.class "w-full h-full flex justify-center items-center select-none" ]
---        [ Html.section
---            [ Attr.class "border-4 border-indigo-200 cursor-pointer" ]
---            (List.reverse (List.range 0 7)
---                |> List.map (viewRow model)
---            )
---        ]
---viewRow : Model -> Int -> Html Msg
---viewRow model rowIndex =
---    model.fields
---        |> List.filter (.position >> Tuple.first >> (==) rowIndex)
---        |> List.map (viewField model.selectedPiece model.possibleMoves)
---        |> Html.div [ Attr.class "flex" ]
---viewField : Maybe Piece -> List Field -> Field -> Html Msg
---viewField selectedPiece possibleMoves field =
---    let
---        ( row, col ) =
---            field.position
---
---        isBlack : Bool
---        isBlack =
---            case ( Math.isEven row, Math.isEven col ) of
---                ( True, True ) ->
---                    True
---
---                ( False, False ) ->
---                    True
---
---                _ ->
---                    False
---
---        isMove : Bool
---        isMove =
---            List.any ((==) field) possibleMoves
---    in
---    Html.div
---        [ onClick (ClickedField (ClickFieldEvent field isMove))
---        , Attr.class
---            (if isBlack then
---                "bg-slate-700"
---
---             else
---                "bg-gray-200"
---            )
---        , Attr.class "h-20 w-20 transition-all flex justify-center items-center text-3xl font-bold"
---        , Attr.class
---            (if selectedPiece /= Nothing && field.piece == selectedPiece then
---                "border-4 border-emerald-400 text-emerald-400"
---
---             else
---                "border-0 border-transparent text-black"
---            )
---        ]
---        [ viewPieceAndMove field.piece isMove ]
 
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
@@ -306,7 +224,7 @@ viewPieceAndMove maybePiece isMove =
         pieceText : String
         pieceText =
             case maybePiece of
-                Just (Pawn _) ->
+                Just Pawn ->
                     "P"
 
                 Nothing ->
@@ -330,12 +248,3 @@ main =
         , view = view
         , subscriptions = \_ -> Sub.none
         }
-
-
-
--- Helpers
-
-
-isJust : Maybe a -> Bool
-isJust maybe =
-    Maybe.map (\_ -> True) maybe |> Maybe.withDefault False

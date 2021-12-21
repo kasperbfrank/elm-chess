@@ -9,7 +9,12 @@ import Html.Events exposing (onClick)
 
 
 type Piece
-    = Pawn
+    = Pawn Color
+
+
+type Color
+    = White
+    | Black
 
 
 type alias Field =
@@ -68,10 +73,10 @@ createPieceFromInitPosition : Position -> Maybe Piece
 createPieceFromInitPosition position =
     case position of
         ( 2, _ ) ->
-            Just Pawn
+            Just (Pawn White)
 
         ( 7, _ ) ->
-            Just Pawn
+            Just (Pawn Black)
 
         _ ->
             Nothing
@@ -140,8 +145,11 @@ update msg model =
 calculatePossibleMoves : Piece -> Position -> List Position
 calculatePossibleMoves selectedPiece ( x, y ) =
     case selectedPiece of
-        Pawn ->
+        Pawn White ->
             [ ( x + 1, y ) ]
+
+        Pawn Black ->
+            [ ( x - 1, y ) ]
 
 
 view : Model -> Html Msg
@@ -184,13 +192,21 @@ viewCell model rowIndex colIndex =
 
         styles : List (Attribute msg)
         styles =
-            [ Attr.class "h-20 w-20 transition-all flex justify-center items-center text-3xl font-bold"
+            [ Attr.class "h-20 w-20 flex justify-center items-center text-3xl font-bold"
             , Attr.class
                 (if isSelectedField then
-                    "border-4 border-emerald-400 text-emerald-400"
+                    "transition-all border-4 border-cyan-400 text-cyan-400"
+
+                 else if isMove then
+                    "text-emerald-400"
 
                  else
-                    "text-black"
+                    case maybePiece of
+                        Just (Pawn color) ->
+                            colorToString color
+
+                        Nothing ->
+                            ""
                 )
             , cellClass
             ]
@@ -224,7 +240,7 @@ viewPieceAndMove maybePiece isMove =
         pieceText : String
         pieceText =
             case maybePiece of
-                Just Pawn ->
+                Just (Pawn _) ->
                     "P"
 
                 Nothing ->
@@ -233,12 +249,22 @@ viewPieceAndMove maybePiece isMove =
         moveText : String
         moveText =
             if isMove then
-                "O"
+                "o"
 
             else
                 ""
     in
     Html.text (pieceText ++ moveText)
+
+
+colorToString : Color -> String
+colorToString color =
+    case color of
+        White ->
+            "text-white"
+
+        Black ->
+            "text-black"
 
 
 main =

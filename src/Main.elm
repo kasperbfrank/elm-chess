@@ -25,6 +25,7 @@ type alias Model =
     { pieces : Dict String Piece
     , selection : Maybe Selection
     , possibleMoves : List Position
+    , turn : Color
     }
 
 
@@ -108,7 +109,13 @@ initDict =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { pieces = initDict, selection = Nothing, possibleMoves = [] }, Cmd.none )
+    ( { pieces = initDict
+      , selection = Nothing
+      , possibleMoves = []
+      , turn = White
+      }
+    , Cmd.none
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -137,9 +144,20 @@ update msg model =
                         |> Dict.insert (positionToIndex to) piece
                 , possibleMoves = []
                 , selection = Nothing
+                , turn = otherColor model.turn
               }
             , Cmd.none
             )
+
+
+otherColor : Color -> Color
+otherColor color =
+    case color of
+        White ->
+            Black
+
+        Black ->
+            White
 
 
 calculatePossibleMoves : Piece -> Position -> List Position
@@ -224,7 +242,11 @@ viewCell model rowIndex colIndex =
             else
                 case maybePiece of
                     Just piece ->
-                        [ onClick (ClickedFieldWithPiece piece ( rowIndex, colIndex )) ]
+                        if getColor piece == model.turn then
+                            [ onClick (ClickedFieldWithPiece piece ( rowIndex, colIndex )) ]
+
+                        else
+                            []
 
                     Nothing ->
                         []
@@ -232,6 +254,13 @@ viewCell model rowIndex colIndex =
     Html.div
         (styles ++ eventHandlers)
         [ viewPieceAndMove maybePiece isMove ]
+
+
+getColor : Piece -> Color
+getColor piece =
+    case piece of
+        Pawn color ->
+            color
 
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg

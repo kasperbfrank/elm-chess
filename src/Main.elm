@@ -142,7 +142,9 @@ update msg model =
                         ( Nothing, [] )
 
                     else
-                        ( Just (Selection piece position), calculatePossibleMoves model.pieces piece position )
+                        ( Just (Selection piece position)
+                        , calculatePossibleMoves model.pieces model.turn piece position
+                        )
             in
             ( { model
                 | selection = selectedPiece
@@ -174,8 +176,8 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : PiecesDict -> Piece -> Position -> List Position
-calculatePossibleMoves pieces selectedPiece position =
+calculatePossibleMoves : PiecesDict -> Color -> Piece -> Position -> List Position
+calculatePossibleMoves pieces playerColor selectedPiece position =
     case selectedPiece of
         Pawn color ->
             let
@@ -187,17 +189,8 @@ calculatePossibleMoves pieces selectedPiece position =
 
                         Black ->
                             (-)
-
-                canMoveTwo : Int -> Bool
-                canMoveTwo x =
-                    case color of
-                        White ->
-                            x == 2
-
-                        Black ->
-                            x == 7
             in
-            calculatePawnMovesFromPosition pieces canMoveTwo direction position
+            calculatePawnMovesFromPosition pieces playerColor direction position
 
         Rook color ->
             -- move unlimited units in step
@@ -251,8 +244,8 @@ isPositionOnBoard ( x, y ) =
     0 < x && x < 9 && 0 < y && y < 9
 
 
-calculatePawnMovesFromPosition : PiecesDict -> (Int -> Bool) -> (Int -> Int -> Int) -> Position -> List Position
-calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
+calculatePawnMovesFromPosition : PiecesDict -> Color -> (Int -> Int -> Int) -> Position -> List Position
+calculatePawnMovesFromPosition pieces playerColor direction ( x, y ) =
     let
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =
@@ -266,8 +259,16 @@ calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
 
                     else
                         Nothing
+
+                canMoveTwo =
+                    case playerColor of
+                        White ->
+                            x == 2
+
+                        Black ->
+                            x == 7
             in
-            if canMoveTwo x && moveOne /= Nothing then
+            if canMoveTwo && moveOne /= Nothing then
                 [ Just ( direction x 2, y ), moveOne ]
 
             else
@@ -277,17 +278,14 @@ calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
         destroyMoves =
             -- Pawn can destroy another unit by moving one forward diagonally
             let
-                destroyLeft : ( Int, Int )
-                destroyLeft =
-                    ( direction x 1, y - 1 )
-
-                destroyRight : ( Int, Int )
-                destroyRight =
-                    ( direction x 1, y + 1 )
+                maybeDestroyMove : Position -> Maybe Position
+                maybeDestroyMove move =
+                    Dict.get (positionToIndex move) pieces
+                        |> maybeWhen (getColor >> (/=) playerColor)
+                        |> Maybe.map (\_ -> move)
             in
-            -- todo: make it impossible to destroy own units
-            [ Dict.get (positionToIndex destroyRight) pieces |> Maybe.map (\_ -> destroyRight)
-            , Dict.get (positionToIndex destroyLeft) pieces |> Maybe.map (\_ -> destroyLeft)
+            [ maybeDestroyMove ( direction x 1, y - 1 )
+            , maybeDestroyMove ( direction x 1, y + 1 )
             ]
     in
     List.filterMap identity (baseMoves ++ destroyMoves)
@@ -445,3 +443,23 @@ main =
         , view = view
         , subscriptions = \_ -> Sub.none
         }
+
+
+
+------------------------------------------------------------------------------------------------------------------------
+-- Utils
+------------------------------------------------------------------------------------------------------------------------
+
+
+maybeWhen : (a -> Bool) -> Maybe a -> Maybe a
+maybeWhen condition maybe =
+    case maybe of
+        Just some ->
+            if condition some then
+                maybe
+
+            else
+                Nothing
+
+        Nothing ->
+            Nothing

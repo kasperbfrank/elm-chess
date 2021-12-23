@@ -551,24 +551,20 @@ getColor piece =
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePiece isMove =
     let
-        pieceText : String
-        pieceText =
+        fieldText : String
+        fieldText =
             case maybePiece of
                 Just piece ->
                     pieceIcon piece
 
                 Nothing ->
-                    ""
+                    if isMove then
+                        "o"
 
-        moveText : String
-        moveText =
-            if isMove then
-                "o"
-
-            else
-                ""
+                    else
+                        ""
     in
-    Html.text (pieceText ++ moveText)
+    Html.text fieldText
 
 
 pieceIcon : Piece -> String

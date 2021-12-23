@@ -14,6 +14,7 @@ type Piece
     | Knight Color
     | Bishop Color
     | Queen Color
+    | King Color
 
 
 type Color
@@ -81,6 +82,9 @@ createPieceFromInitPosition ( row, col ) =
                 4 ->
                     Just (Queen White)
 
+                5 ->
+                    Just (King White)
+
                 6 ->
                     Just (Bishop White)
 
@@ -109,6 +113,9 @@ createPieceFromInitPosition ( row, col ) =
 
                 3 ->
                     Just (Bishop Black)
+
+                4 ->
+                    Just (King Black)
 
                 5 ->
                     Just (Queen Black)
@@ -278,6 +285,20 @@ calculatePossibleMoves pieces selectedPiece position =
             allMoves
                 color
                 UnlimitedMoves
+                [ \( row, col ) -> ( row + 1, col + 1 )
+                , \( row, col ) -> ( row + 1, col - 1 )
+                , \( row, col ) -> ( row - 1, col - 1 )
+                , \( row, col ) -> ( row - 1, col + 1 )
+                , \( row, col ) -> ( row + 1, col )
+                , \( row, col ) -> ( row - 1, col )
+                , \( row, col ) -> ( row, col + 1 )
+                , \( row, col ) -> ( row, col - 1 )
+                ]
+
+        King color ->
+            allMoves
+                color
+                SingleMove
                 [ \( row, col ) -> ( row + 1, col + 1 )
                 , \( row, col ) -> ( row + 1, col - 1 )
                 , \( row, col ) -> ( row - 1, col - 1 )
@@ -498,6 +519,9 @@ getColor piece =
         Queen color ->
             color
 
+        King color ->
+            color
+
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePiece isMove =
@@ -533,13 +557,16 @@ pieceIcon piece =
             "R"
 
         Knight _ ->
-            "K"
+            "H"
 
         Bishop _ ->
             "B"
 
         Queen _ ->
             "Q"
+
+        King _ ->
+            "K"
 
 
 colorToString : Color -> String

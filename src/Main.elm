@@ -203,20 +203,23 @@ update msg model =
 
         ClickedFieldWithMove { piece, from, to } ->
             let
+                newPieces : Dict String Piece
+                newPieces =
+                    Dict.remove (positionToIndex from) model.pieces
+                        |> Dict.insert (positionToIndex to) piece
+
                 enemyKing : Maybe Piece
                 enemyKing =
-                    Dict.values model.pieces
+                    Dict.values newPieces
                         |> List.filter ((==) (King (otherColor model.turn)))
                         |> List.head
             in
             ( { model
-                | pieces =
-                    Dict.remove (positionToIndex from) model.pieces
-                        |> Dict.insert (positionToIndex to) piece
+                | pieces = newPieces
                 , possibleMoves = []
                 , selection = Nothing
                 , turn = otherColor model.turn
-                , victory = Maybe.map (\_ -> model.turn) enemyKing
+                , victory = invertMap model.turn enemyKing
               }
             , Cmd.none
             )
@@ -645,3 +648,13 @@ maybeWhen predicate maybe =
 
         Nothing ->
             Nothing
+
+
+invertMap : a -> Maybe b -> Maybe a
+invertMap ifNothing maybe =
+    case maybe of
+        Just _ ->
+            Nothing
+
+        Nothing ->
+            Just ifNothing

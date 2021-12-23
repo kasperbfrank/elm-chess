@@ -452,10 +452,10 @@ main =
 
 
 maybeWhen : (a -> Bool) -> Maybe a -> Maybe a
-maybeWhen condition maybe =
+maybeWhen predicate maybe =
     case maybe of
-        Just some ->
-            if condition some then
+        Just arg ->
+            if predicate arg then
                 maybe
 
             else

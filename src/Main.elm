@@ -148,8 +148,8 @@ createPieceWithIndexTuple position =
     Maybe.map (Tuple.pair (positionToIndex position)) maybePiece
 
 
-initDict : PiecesDict
-initDict =
+initPieces : PiecesDict
+initPieces =
     List.range 1 8
         |> List.map (\n -> ( n, List.range 1 8 ))
         |> List.concatMap
@@ -161,7 +161,7 @@ initDict =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { pieces = initDict
+    ( { pieces = initPieces
       , selection = Nothing
       , possibleMoves = []
       , turn = White

@@ -18,6 +18,11 @@ type Color
     | Black
 
 
+type MoveCount
+    = SingleMove
+    | UnlimitedMoves
+
+
 type alias Field =
     { position : Position, piece : Maybe Piece }
 
@@ -194,14 +199,14 @@ calculatePossibleMoves pieces playerColor selectedPiece position =
 
         Rook color ->
             -- move unlimited units in step
-            calculateMovesInDirection pieces color False position (\( x, y ) -> ( x + 1, y ))
-                ++ calculateMovesInDirection pieces color False position (\( x, y ) -> ( x - 1, y ))
-                ++ calculateMovesInDirection pieces color False position (\( x, y ) -> ( x, y + 1 ))
-                ++ calculateMovesInDirection pieces color False position (\( x, y ) -> ( x, y - 1 ))
+            calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x + 1, y ))
+                ++ calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x - 1, y ))
+                ++ calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x, y + 1 ))
+                ++ calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x, y - 1 ))
 
 
-calculateMovesInDirection : PiecesDict -> Color -> Bool -> Position -> (Position -> Position) -> List Position
-calculateMovesInDirection pieces playerColor singleMove startPosition tryMove =
+calculateMovesInDirection : MoveCount -> PiecesDict -> Color -> Position -> (Position -> Position) -> List Position
+calculateMovesInDirection moveCount pieces playerColor startPosition tryMove =
     let
         move : List Position -> Position -> List Position
         move acc from =
@@ -226,7 +231,7 @@ calculateMovesInDirection pieces playerColor singleMove startPosition tryMove =
                             to :: acc
 
                     Nothing ->
-                        if singleMove then
+                        if moveCount == SingleMove then
                             to :: acc
 
                         else
@@ -250,16 +255,20 @@ calculatePawnMovesFromPosition pieces playerColor direction ( x, y ) =
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =
             let
+                oneForward : ( Int, Int )
                 oneForward =
                     ( direction x 1, y )
 
+                moveOne : Maybe ( Int, Int )
                 moveOne =
+                    -- Pawns cannot destroy another unit on a regular move straight forward
                     if Dict.get (positionToIndex oneForward) pieces == Nothing then
                         Just oneForward
 
                     else
                         Nothing
 
+                canMoveTwo : Bool
                 canMoveTwo =
                     case playerColor of
                         White ->

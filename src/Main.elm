@@ -57,13 +57,35 @@ positionToIndex ( row, col ) =
 
 
 createPieceFromInitPosition : Position -> Maybe Piece
-createPieceFromInitPosition position =
-    case position of
-        ( 2, _ ) ->
+createPieceFromInitPosition ( x, y ) =
+    case x of
+        1 ->
+            case y of
+                1 ->
+                    Just (Rook White)
+
+                8 ->
+                    Just (Rook White)
+
+                _ ->
+                    Nothing
+
+        2 ->
             Just (Pawn White)
 
-        ( 7, _ ) ->
+        7 ->
             Just (Pawn Black)
+
+        8 ->
+            case y of
+                1 ->
+                    Just (Rook Black)
+
+                8 ->
+                    Just (Rook Black)
+
+                _ ->
+                    Nothing
 
         _ ->
             Nothing

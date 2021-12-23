@@ -1,14 +1,14 @@
 ## MVP
 - [x] Store pieces in Dict Position Piece
-- [ ] Correct row / col naming, e.g. (A, 1)
-- [ ] Fn for translating e.g. A -> 1
-- [ ] Make recursive function to figure return possible moves.
+- [x] Make recursive function to figure return possible moves.
 Something that takes a `MoveRestriction` describing how 
 many moves are possible in any given direction, and a `(x, y)`
 describing distance of a single move a piece, i.e. Horsie would be
 `(1, 2)`, Queen would be `(1, 1)`
 
 ## Ideas
+- [ ] Correct row / col naming, e.g. (A, 1)
+- [ ] Fn for translating e.g. 1 -> A
 - [ ] Drag pieces
 - [ ] Music, Themes
 - [ ] Disco chess! Where board changes color like disco dance floor

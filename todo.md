@@ -7,7 +7,8 @@ describing distance of a single move a piece, i.e. Horsie would be
 `(1, 2)`, Queen would be `(1, 1)`
 - [ ] Implement "casting" for King
 - [ ] Make sure player cannot put own King in check
-- [ ] Implement victory state
+- [ ] If pawn reaches other side of the board, make it possible to trade for other piece
+- [x] Implement victory state + play again
 
 ## Ideas
 - [ ] Correct row / col naming, e.g. (A, 1)

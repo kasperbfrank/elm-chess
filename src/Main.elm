@@ -419,7 +419,7 @@ view : Model -> Html Msg
 view model =
     Html.main_ [ Attr.class "w-full h-full flex justify-center items-center select-none" ]
         [ Html.section
-            []
+            [ Attr.class "border-4 border-slate-800" ]
             (List.reverse (List.range 1 8) |> List.map (viewRow model))
         ]
 

@@ -12,6 +12,7 @@ type Piece
     = Pawn Color
     | Rook Color
     | Knight Color
+    | Bishop Color
 
 
 type Color
@@ -63,15 +64,21 @@ positionToIndex ( row, col ) =
 
 
 createPieceFromInitPosition : Position -> Maybe Piece
-createPieceFromInitPosition ( x, y ) =
-    case x of
+createPieceFromInitPosition ( row, col ) =
+    case row of
         1 ->
-            case y of
+            case col of
                 1 ->
                     Just (Rook White)
 
                 2 ->
                     Just (Knight White)
+
+                3 ->
+                    Just (Bishop White)
+
+                6 ->
+                    Just (Bishop White)
 
                 7 ->
                     Just (Knight White)
@@ -89,12 +96,18 @@ createPieceFromInitPosition ( x, y ) =
             Just (Pawn Black)
 
         8 ->
-            case y of
+            case col of
                 1 ->
                     Just (Rook Black)
 
                 2 ->
                     Just (Knight Black)
+
+                3 ->
+                    Just (Bishop Black)
+
+                6 ->
+                    Just (Bishop Black)
 
                 7 ->
                     Just (Knight Black)
@@ -244,6 +257,16 @@ calculatePossibleMoves pieces selectedPiece position =
                 , \( row, col ) -> ( row + 2, col - 1 )
                 ]
 
+        Bishop color ->
+            allMoves
+                color
+                UnlimitedMoves
+                [ \( row, col ) -> ( row + 1, col + 1 )
+                , \( row, col ) -> ( row + 1, col - 1 )
+                , \( row, col ) -> ( row - 1, col - 1 )
+                , \( row, col ) -> ( row - 1, col + 1 )
+                ]
+
 
 
 --List.foldl (\moveFn acc -> calculateMoves SingleMove pieces color position moveFn ++ acc) [] moveFns
@@ -289,19 +312,19 @@ calculateMoves pieces startPosition playerColor moveCount tryMove =
 
 
 isPositionOnBoard : Position -> Bool
-isPositionOnBoard ( x, y ) =
-    0 < x && x < 9 && 0 < y && y < 9
+isPositionOnBoard ( row, col ) =
+    0 < row && row < 9 && 0 < col && col < 9
 
 
 calculatePawnMovesFromPosition : PiecesDict -> Color -> (Int -> Int -> Int) -> Position -> List Position
-calculatePawnMovesFromPosition pieces playerColor direction ( x, y ) =
+calculatePawnMovesFromPosition pieces playerColor direction ( row, col ) =
     let
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =
             let
                 oneForward : ( Int, Int )
                 oneForward =
-                    ( direction x 1, y )
+                    ( direction row 1, col )
 
                 moveOne : Maybe ( Int, Int )
                 moveOne =
@@ -316,13 +339,13 @@ calculatePawnMovesFromPosition pieces playerColor direction ( x, y ) =
                 canMoveTwo =
                     case playerColor of
                         White ->
-                            x == 2
+                            row == 2
 
                         Black ->
-                            x == 7
+                            row == 7
             in
             if canMoveTwo && moveOne /= Nothing then
-                [ Just ( direction x 2, y ), moveOne ]
+                [ Just ( direction row 2, col ), moveOne ]
 
             else
                 [ moveOne ]
@@ -337,8 +360,8 @@ calculatePawnMovesFromPosition pieces playerColor direction ( x, y ) =
                         |> maybeWhen (getColor >> (/=) playerColor)
                         |> Maybe.map (\_ -> move)
             in
-            [ maybeDestroyMove ( direction x 1, y - 1 )
-            , maybeDestroyMove ( direction x 1, y + 1 )
+            [ maybeDestroyMove ( direction row 1, col - 1 )
+            , maybeDestroyMove ( direction row 1, col + 1 )
             ]
     in
     List.filterMap identity (baseMoves ++ destroyMoves)
@@ -448,6 +471,9 @@ getColor piece =
         Knight color ->
             color
 
+        Bishop color ->
+            color
+
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePiece isMove =
@@ -483,6 +509,9 @@ pieceIcon piece =
 
         Knight _ ->
             "K"
+
+        Bishop _ ->
+            "B"
 
 
 colorToString : Color -> String

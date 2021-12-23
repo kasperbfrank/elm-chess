@@ -13,6 +13,7 @@ type Piece
     | Rook Color
     | Knight Color
     | Bishop Color
+    | Queen Color
 
 
 type Color
@@ -77,6 +78,9 @@ createPieceFromInitPosition ( row, col ) =
                 3 ->
                     Just (Bishop White)
 
+                4 ->
+                    Just (Queen White)
+
                 6 ->
                     Just (Bishop White)
 
@@ -105,6 +109,9 @@ createPieceFromInitPosition ( row, col ) =
 
                 3 ->
                     Just (Bishop Black)
+
+                5 ->
+                    Just (Queen Black)
 
                 6 ->
                     Just (Bishop Black)
@@ -265,6 +272,20 @@ calculatePossibleMoves pieces selectedPiece position =
                 , \( row, col ) -> ( row + 1, col - 1 )
                 , \( row, col ) -> ( row - 1, col - 1 )
                 , \( row, col ) -> ( row - 1, col + 1 )
+                ]
+
+        Queen color ->
+            allMoves
+                color
+                UnlimitedMoves
+                [ \( row, col ) -> ( row + 1, col + 1 )
+                , \( row, col ) -> ( row + 1, col - 1 )
+                , \( row, col ) -> ( row - 1, col - 1 )
+                , \( row, col ) -> ( row - 1, col + 1 )
+                , \( row, col ) -> ( row + 1, col )
+                , \( row, col ) -> ( row - 1, col )
+                , \( row, col ) -> ( row, col + 1 )
+                , \( row, col ) -> ( row, col - 1 )
                 ]
 
 
@@ -474,6 +495,9 @@ getColor piece =
         Bishop color ->
             color
 
+        Queen color ->
+            color
+
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePiece isMove =
@@ -500,6 +524,7 @@ viewPieceAndMove maybePiece isMove =
 
 pieceIcon : Piece -> String
 pieceIcon piece =
+    -- todo: consider actually using color here for color of "Icon"
     case piece of
         Pawn _ ->
             "P"
@@ -512,6 +537,9 @@ pieceIcon piece =
 
         Bishop _ ->
             "B"
+
+        Queen _ ->
+            "Q"
 
 
 colorToString : Color -> String

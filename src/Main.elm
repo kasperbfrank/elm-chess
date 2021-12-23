@@ -180,7 +180,8 @@ calculatePossibleMoves pieces selectedPiece position =
 calculatePawnMovesFromPosition : PiecesDict -> (Int -> Bool) -> (Int -> Int -> Int) -> Position -> List Position
 calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
     let
-        basemoves =
+        baseMoves : List (Maybe ( Int, Int ))
+        baseMoves =
             let
                 oneForward =
                     ( direction x 1, y )
@@ -197,8 +198,24 @@ calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
 
             else
                 [ moveOne ]
+
+        destroyMoves : List (Maybe ( Int, Int ))
+        destroyMoves =
+            -- Pawn can destroy another unit by moving one forward diagonally
+            let
+                destroyLeft : ( Int, Int )
+                destroyLeft =
+                    ( direction x 1, y - 1 )
+
+                destroyRight : ( Int, Int )
+                destroyRight =
+                    ( direction x 1, y + 1 )
+            in
+            [ Dict.get (positionToIndex destroyRight) pieces |> Maybe.map (\_ -> destroyRight)
+            , Dict.get (positionToIndex destroyLeft) pieces |> Maybe.map (\_ -> destroyLeft)
+            ]
     in
-    List.filterMap identity basemoves
+    List.filterMap identity (baseMoves ++ destroyMoves)
 
 
 

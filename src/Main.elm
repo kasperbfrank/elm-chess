@@ -10,6 +10,7 @@ import Html.Events exposing (onClick)
 
 type Piece
     = Pawn Color
+    | Rook Color
 
 
 type Color
@@ -176,6 +177,9 @@ calculatePossibleMoves pieces selectedPiece position =
             in
             calculatePawnMovesFromPosition pieces canMoveTwo direction position
 
+        Rook color ->
+            Debug.todo "rook moves"
+
 
 calculatePawnMovesFromPosition : PiecesDict -> (Int -> Bool) -> (Int -> Int -> Int) -> Position -> List Position
 calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
@@ -274,8 +278,8 @@ viewCell model rowIndex colIndex =
 
                  else
                     case maybePiece of
-                        Just (Pawn color) ->
-                            colorToString color
+                        Just piece ->
+                            getColor piece |> colorToString
 
                         Nothing ->
                             ""
@@ -316,6 +320,9 @@ getColor piece =
         Pawn color ->
             color
 
+        Rook color ->
+            color
+
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePiece isMove =
@@ -323,8 +330,8 @@ viewPieceAndMove maybePiece isMove =
         pieceText : String
         pieceText =
             case maybePiece of
-                Just (Pawn _) ->
-                    "P"
+                Just piece ->
+                    pieceIcon piece
 
                 Nothing ->
                     ""
@@ -338,6 +345,16 @@ viewPieceAndMove maybePiece isMove =
                 ""
     in
     Html.text (pieceText ++ moveText)
+
+
+pieceIcon : Piece -> String
+pieceIcon piece =
+    case piece of
+        Pawn _ ->
+            "P"
+
+        Rook _ ->
+            "R"
 
 
 colorToString : Color -> String

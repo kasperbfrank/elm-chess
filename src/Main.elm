@@ -27,10 +27,6 @@ type MoveCount
     | UnlimitedMoves
 
 
-type alias Field =
-    { position : Position, piece : Maybe Piece }
-
-
 type alias Model =
     { pieces : PiecesDict
     , selection : Maybe Selection

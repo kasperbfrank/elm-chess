@@ -1,4 +1,4 @@
-module Main exposing (Msg(..), calculatePawnMovesFromPosition, main, update, view)
+module Main exposing (Msg(..), calculatePawnMoves, main, update, view)
 
 import Arithmetic as Math
 import Browser
@@ -254,17 +254,13 @@ calculatePossibleMoves pieces selectedPiece position =
                         Black ->
                             (-)
             in
-            calculatePawnMovesFromPosition pieces color direction position
+            calculatePawnMoves pieces color direction position
 
         Rook color ->
             allMoves
                 color
                 UnlimitedMoves
-                [ \( row, col ) -> ( row + 1, col )
-                , \( row, col ) -> ( row - 1, col )
-                , \( row, col ) -> ( row, col + 1 )
-                , \( row, col ) -> ( row, col - 1 )
-                ]
+                straightMoves
 
         Knight color ->
             allMoves
@@ -284,39 +280,37 @@ calculatePossibleMoves pieces selectedPiece position =
             allMoves
                 color
                 UnlimitedMoves
-                [ \( row, col ) -> ( row + 1, col + 1 )
-                , \( row, col ) -> ( row + 1, col - 1 )
-                , \( row, col ) -> ( row - 1, col - 1 )
-                , \( row, col ) -> ( row - 1, col + 1 )
-                ]
+                diagonalMoves
 
         Queen color ->
             allMoves
                 color
                 UnlimitedMoves
-                [ \( row, col ) -> ( row + 1, col + 1 )
-                , \( row, col ) -> ( row + 1, col - 1 )
-                , \( row, col ) -> ( row - 1, col - 1 )
-                , \( row, col ) -> ( row - 1, col + 1 )
-                , \( row, col ) -> ( row + 1, col )
-                , \( row, col ) -> ( row - 1, col )
-                , \( row, col ) -> ( row, col + 1 )
-                , \( row, col ) -> ( row, col - 1 )
-                ]
+                (straightMoves ++ diagonalMoves)
 
         King color ->
             allMoves
                 color
                 SingleMove
-                [ \( row, col ) -> ( row + 1, col + 1 )
-                , \( row, col ) -> ( row + 1, col - 1 )
-                , \( row, col ) -> ( row - 1, col - 1 )
-                , \( row, col ) -> ( row - 1, col + 1 )
-                , \( row, col ) -> ( row + 1, col )
-                , \( row, col ) -> ( row - 1, col )
-                , \( row, col ) -> ( row, col + 1 )
-                , \( row, col ) -> ( row, col - 1 )
-                ]
+                (straightMoves ++ diagonalMoves)
+
+
+diagonalMoves : List (Position -> Position)
+diagonalMoves =
+    [ \( row, col ) -> ( row + 1, col + 1 )
+    , \( row, col ) -> ( row + 1, col - 1 )
+    , \( row, col ) -> ( row - 1, col - 1 )
+    , \( row, col ) -> ( row - 1, col + 1 )
+    ]
+
+
+straightMoves : List (Position -> Position)
+straightMoves =
+    [ \( row, col ) -> ( row + 1, col )
+    , \( row, col ) -> ( row - 1, col )
+    , \( row, col ) -> ( row, col + 1 )
+    , \( row, col ) -> ( row, col - 1 )
+    ]
 
 
 calculateMoves : PiecesDict -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position
@@ -363,8 +357,8 @@ isPositionOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-calculatePawnMovesFromPosition : PiecesDict -> Color -> (Int -> Int -> Int) -> Position -> List Position
-calculatePawnMovesFromPosition pieces playerColor direction ( row, col ) =
+calculatePawnMoves : PiecesDict -> Color -> (Int -> Int -> Int) -> Position -> List Position
+calculatePawnMoves pieces playerColor direction ( row, col ) =
     let
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =

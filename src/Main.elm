@@ -153,10 +153,7 @@ initDict =
     List.range 1 8
         |> List.map (\n -> ( n, List.range 1 8 ))
         |> List.concatMap
-            (\( rowIndex, colIndexes ) ->
-                colIndexes
-                    |> List.map (\colIndex -> ( rowIndex, colIndex ))
-            )
+            (\( rowIndex, colIndexes ) -> List.map (Tuple.pair rowIndex) colIndexes)
         |> List.map createPieceWithIndexTuple
         |> List.filterMap identity
         |> Dict.fromList
@@ -264,7 +261,6 @@ calculatePossibleMoves pieces selectedPiece position =
             calculatePawnMovesFromPosition pieces color direction position
 
         Rook color ->
-            -- move unlimited units in step
             allMoves
                 color
                 UnlimitedMoves
@@ -325,10 +321,6 @@ calculatePossibleMoves pieces selectedPiece position =
                 , \( row, col ) -> ( row, col + 1 )
                 , \( row, col ) -> ( row, col - 1 )
                 ]
-
-
-
---List.foldl (\moveFn acc -> calculateMoves SingleMove pieces color position moveFn ++ acc) [] moveFns
 
 
 calculateMoves : PiecesDict -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position

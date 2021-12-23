@@ -9,6 +9,7 @@ describing distance of a single move a piece, i.e. Horsie would be
 - [ ] Make sure player cannot put own King in check
 - [ ] If pawn reaches other side of the board, make it possible to trade for other piece
 - [x] Implement victory state + play again
+- [ ] Make it more visible when a move destroys enemy unit
 
 ## Ideas
 - [ ] Correct row / col naming, e.g. (A, 1)

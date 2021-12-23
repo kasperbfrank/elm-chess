@@ -550,21 +550,39 @@ getColor piece =
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePiece isMove =
-    let
-        fieldText : String
-        fieldText =
-            case maybePiece of
-                Just piece ->
-                    pieceIcon piece
+    case ( maybePiece, isMove ) of
+        ( Just piece, True ) ->
+            Html.div [ Attr.class "w-full h-full flex justify-center items-center relative" ]
+                [ Html.text (pieceIcon piece)
+                , Html.div [ Attr.class "absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
+                ]
 
-                Nothing ->
-                    if isMove then
-                        "o"
+        ( Just piece, False ) ->
+            Html.text (pieceIcon piece)
 
-                    else
-                        ""
-    in
-    Html.text fieldText
+        ( Nothing, True ) ->
+            Html.text "o"
+
+        ( Nothing, False ) ->
+            Html.text ""
+
+
+
+--let
+--    fieldText : String
+--    fieldText =
+--        case maybePiece of
+--            Just piece ->
+--                pieceIcon piece
+--
+--            Nothing ->
+--                if isMove then
+--                    "o"
+--
+--                else
+--                    ""
+--in
+--Html.text fieldText
 
 
 pieceIcon : Piece -> String

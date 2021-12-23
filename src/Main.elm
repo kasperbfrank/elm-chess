@@ -11,6 +11,7 @@ import Html.Events exposing (onClick)
 type Piece
     = Pawn Color
     | Rook Color
+    | Knight Color
 
 
 type Color
@@ -69,6 +70,12 @@ createPieceFromInitPosition ( x, y ) =
                 1 ->
                     Just (Rook White)
 
+                2 ->
+                    Just (Knight White)
+
+                7 ->
+                    Just (Knight White)
+
                 8 ->
                     Just (Rook White)
 
@@ -85,6 +92,12 @@ createPieceFromInitPosition ( x, y ) =
             case y of
                 1 ->
                     Just (Rook Black)
+
+                2 ->
+                    Just (Knight Black)
+
+                7 ->
+                    Just (Knight Black)
 
                 8 ->
                     Just (Rook Black)
@@ -148,7 +161,7 @@ update msg model =
 
                     else
                         ( Just (Selection piece position)
-                        , calculatePossibleMoves model.pieces model.turn piece position
+                        , calculatePossibleMoves model.pieces piece position
                         )
             in
             ( { model
@@ -181,8 +194,17 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : PiecesDict -> Color -> Piece -> Position -> List Position
-calculatePossibleMoves pieces playerColor selectedPiece position =
+calculatePossibleMoves : PiecesDict -> Piece -> Position -> List Position
+calculatePossibleMoves pieces selectedPiece position =
+    let
+        moves : Color -> MoveCount -> (Position -> Position) -> List Position
+        moves =
+            calculateMoves pieces position
+
+        allMoves : Color -> MoveCount -> List (Position -> Position) -> List Position
+        allMoves color moveCount moveFns =
+            List.foldl (\moveFn acc -> moves color moveCount moveFn ++ acc) [] moveFns
+    in
     case selectedPiece of
         Pawn color ->
             let
@@ -195,18 +217,40 @@ calculatePossibleMoves pieces playerColor selectedPiece position =
                         Black ->
                             (-)
             in
-            calculatePawnMovesFromPosition pieces playerColor direction position
+            calculatePawnMovesFromPosition pieces color direction position
 
         Rook color ->
             -- move unlimited units in step
-            calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x + 1, y ))
-                ++ calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x - 1, y ))
-                ++ calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x, y + 1 ))
-                ++ calculateMovesInDirection UnlimitedMoves pieces color position (\( x, y ) -> ( x, y - 1 ))
+            allMoves
+                color
+                UnlimitedMoves
+                [ \( row, col ) -> ( row + 1, col )
+                , \( row, col ) -> ( row - 1, col )
+                , \( row, col ) -> ( row, col + 1 )
+                , \( row, col ) -> ( row, col - 1 )
+                ]
+
+        Knight color ->
+            allMoves
+                color
+                SingleMove
+                [ \( row, col ) -> ( row + 2, col + 1 )
+                , \( row, col ) -> ( row + 1, col + 2 )
+                , \( row, col ) -> ( row - 1, col + 2 )
+                , \( row, col ) -> ( row - 2, col + 1 )
+                , \( row, col ) -> ( row - 2, col - 1 )
+                , \( row, col ) -> ( row - 1, col - 2 )
+                , \( row, col ) -> ( row + 1, col - 2 )
+                , \( row, col ) -> ( row + 2, col - 1 )
+                ]
 
 
-calculateMovesInDirection : MoveCount -> PiecesDict -> Color -> Position -> (Position -> Position) -> List Position
-calculateMovesInDirection moveCount pieces playerColor startPosition tryMove =
+
+--List.foldl (\moveFn acc -> calculateMoves SingleMove pieces color position moveFn ++ acc) [] moveFns
+
+
+calculateMoves : PiecesDict -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position
+calculateMoves pieces startPosition playerColor moveCount tryMove =
     let
         move : List Position -> Position -> List Position
         move acc from =
@@ -401,6 +445,9 @@ getColor piece =
         Rook color ->
             color
 
+        Knight color ->
+            color
+
 
 viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePiece isMove =
@@ -433,6 +480,9 @@ pieceIcon piece =
 
         Rook _ ->
             "R"
+
+        Knight _ ->
+            "K"
 
 
 colorToString : Color -> String

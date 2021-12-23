@@ -5,7 +5,7 @@ import Browser
 import Dict exposing (Dict)
 import Html exposing (Attribute, Html)
 import Html.Attributes as Attr
-import Html.Events exposing (onClick)
+import Html.Events as Events exposing (onClick)
 
 
 type Piece
@@ -36,6 +36,7 @@ type alias Model =
     , selection : Maybe Selection
     , possibleMoves : List Position
     , turn : Color
+    , victory : Maybe Color
     }
 
 
@@ -46,6 +47,7 @@ type alias PiecesDict =
 type Msg
     = ClickedFieldWithPiece Piece Position
     | ClickedFieldWithMove MovePieceEvent
+    | ClickedPlayAgainButton
 
 
 type alias Selection =
@@ -166,6 +168,7 @@ init _ =
       , selection = Nothing
       , possibleMoves = []
       , turn = White
+      , victory = Nothing
       }
     , Cmd.none
     )
@@ -199,6 +202,13 @@ update msg model =
             )
 
         ClickedFieldWithMove { piece, from, to } ->
+            let
+                enemyKing : Maybe Piece
+                enemyKing =
+                    Dict.values model.pieces
+                        |> List.filter ((==) (King (otherColor model.turn)))
+                        |> List.head
+            in
             ( { model
                 | pieces =
                     Dict.remove (positionToIndex from) model.pieces
@@ -206,9 +216,13 @@ update msg model =
                 , possibleMoves = []
                 , selection = Nothing
                 , turn = otherColor model.turn
+                , victory = Maybe.map (\_ -> model.turn) enemyKing
               }
             , Cmd.none
             )
+
+        ClickedPlayAgainButton ->
+            init ()
 
 
 otherColor : Color -> Color
@@ -418,10 +432,35 @@ calculatePawnMovesFromPosition pieces playerColor direction ( row, col ) =
 view : Model -> Html Msg
 view model =
     Html.main_ [ Attr.class "w-full h-full flex justify-center items-center select-none" ]
-        [ Html.section
-            [ Attr.class "border-4 border-slate-800" ]
-            (List.reverse (List.range 1 8) |> List.map (viewRow model))
+        [ case model.victory of
+            Just color ->
+                viewVictory color
+
+            Nothing ->
+                viewBoard model
         ]
+
+
+viewVictory : Color -> Html Msg
+viewVictory color =
+    Html.div
+        [ Attr.class "flex flex-col items-center" ]
+        [ Html.h1
+            [ Attr.class "text-3xl mb-4" ]
+            [ Html.text ("Player " ++ colorToString color ++ " is victorious! 🤴🏼") ]
+        , Html.button
+            [ Events.onClick ClickedPlayAgainButton
+            , Attr.class "text-xl bg-emerald-500 rounded text-white p-4 hover:bg-emerald-600 transition-all hover:scale-110"
+            ]
+            [ Html.text "Play again!" ]
+        ]
+
+
+viewBoard : Model -> Html Msg
+viewBoard model =
+    Html.section
+        [ Attr.class "border-4 border-slate-800" ]
+        (List.reverse (List.range 1 8) |> List.map (viewRow model))
 
 
 viewRow : Model -> Int -> Html Msg
@@ -466,7 +505,7 @@ viewCell model rowIndex colIndex =
                  else
                     case maybePiece of
                         Just piece ->
-                            getColor piece |> colorToString
+                            "text-" ++ String.toLower (colorToString (getColor piece))
 
                         Nothing ->
                             ""
@@ -573,10 +612,10 @@ colorToString : Color -> String
 colorToString color =
     case color of
         White ->
-            "text-white"
+            "White"
 
         Black ->
-            "text-black"
+            "Black"
 
 
 main =

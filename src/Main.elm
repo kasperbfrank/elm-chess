@@ -200,7 +200,55 @@ calculatePossibleMoves pieces selectedPiece position =
             calculatePawnMovesFromPosition pieces canMoveTwo direction position
 
         Rook color ->
-            Debug.todo "rook moves"
+            -- move unlimited units in step
+            calculateMovesInDirection pieces color False position (\( x, y ) -> ( x + 1, y ))
+                ++ calculateMovesInDirection pieces color False position (\( x, y ) -> ( x - 1, y ))
+                ++ calculateMovesInDirection pieces color False position (\( x, y ) -> ( x, y + 1 ))
+                ++ calculateMovesInDirection pieces color False position (\( x, y ) -> ( x, y - 1 ))
+
+
+calculateMovesInDirection : PiecesDict -> Color -> Bool -> Position -> (Position -> Position) -> List Position
+calculateMovesInDirection pieces playerColor singleMove startPosition tryMove =
+    let
+        move : List Position -> Position -> List Position
+        move acc from =
+            let
+                to : Position
+                to =
+                    tryMove from
+
+                inhabitant : Maybe Piece
+                inhabitant =
+                    Dict.get (positionToIndex to) pieces
+            in
+            if isPositionOnBoard to then
+                case inhabitant of
+                    Just piece ->
+                        if getColor piece == playerColor then
+                            acc
+
+                        else
+                            -- Other player has a unit on this field,
+                            -- so it's a valid move, but cannot go further
+                            to :: acc
+
+                    Nothing ->
+                        if singleMove then
+                            to :: acc
+
+                        else
+                            -- find next move
+                            move (to :: acc) to
+
+            else
+                acc
+    in
+    move [] startPosition
+
+
+isPositionOnBoard : Position -> Bool
+isPositionOnBoard ( x, y ) =
+    0 < x && x < 9 && 0 < y && y < 9
 
 
 calculatePawnMovesFromPosition : PiecesDict -> (Int -> Bool) -> (Int -> Int -> Int) -> Position -> List Position
@@ -237,6 +285,7 @@ calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
                 destroyRight =
                     ( direction x 1, y + 1 )
             in
+            -- todo: make it impossible to destroy own units
             [ Dict.get (positionToIndex destroyRight) pieces |> Maybe.map (\_ -> destroyRight)
             , Dict.get (positionToIndex destroyLeft) pieces |> Maybe.map (\_ -> destroyLeft)
             ]

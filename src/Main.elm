@@ -1,4 +1,4 @@
-module Main exposing (Msg(..), main, update, view)
+module Main exposing (Msg(..), calculatePawnMovesFromPosition, main, update, view)
 
 import Arithmetic as Math
 import Browser
@@ -22,11 +22,15 @@ type alias Field =
 
 
 type alias Model =
-    { pieces : Dict String Piece
+    { pieces : PiecesDict
     , selection : Maybe Selection
     , possibleMoves : List Position
     , turn : Color
     }
+
+
+type alias PiecesDict =
+    Dict String Piece
 
 
 type Msg
@@ -93,7 +97,7 @@ createPieceWithIndexTuple position =
     Maybe.map (Tuple.pair (positionToIndex position)) maybePiece
 
 
-initDict : Dict String Piece
+initDict : PiecesDict
 initDict =
     List.range 1 8
         |> List.map (\n -> ( n, List.range 1 8 ))
@@ -118,6 +122,12 @@ init _ =
     )
 
 
+
+------------------------------------------------------------------------------------------------------------------------
+-- UPDATE
+------------------------------------------------------------------------------------------------------------------------
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -128,7 +138,7 @@ update msg model =
                         ( Nothing, [] )
 
                     else
-                        ( Just (Selection piece position), calculatePossibleMoves piece position )
+                        ( Just (Selection piece position), calculatePossibleMoves model.pieces piece position )
             in
             ( { model
                 | selection = selectedPiece
@@ -160,14 +170,60 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : Piece -> Position -> List Position
-calculatePossibleMoves selectedPiece ( x, y ) =
+calculatePossibleMoves : PiecesDict -> Piece -> Position -> List Position
+calculatePossibleMoves pieces selectedPiece position =
     case selectedPiece of
-        Pawn White ->
-            [ ( x + 1, y ) ]
+        Pawn color ->
+            let
+                direction : Int -> Int -> Int
+                direction =
+                    case color of
+                        White ->
+                            (+)
 
-        Pawn Black ->
-            [ ( x - 1, y ) ]
+                        Black ->
+                            (-)
+
+                canMoveTwo : Int -> Bool
+                canMoveTwo x =
+                    case color of
+                        White ->
+                            x == 2
+
+                        Black ->
+                            x == 7
+            in
+            calculatePawnMovesFromPosition pieces canMoveTwo direction position
+
+
+calculatePawnMovesFromPosition : PiecesDict -> (Int -> Bool) -> (Int -> Int -> Int) -> Position -> List Position
+calculatePawnMovesFromPosition pieces canMoveTwo direction ( x, y ) =
+    let
+        basemoves =
+            let
+                oneForward =
+                    ( direction x 1, y )
+
+                moveOne =
+                    if Dict.get (positionToIndex oneForward) pieces == Nothing then
+                        Just oneForward
+
+                    else
+                        Nothing
+            in
+            if canMoveTwo x && moveOne /= Nothing then
+                [ Just ( direction x 2, y ), moveOne ]
+
+            else
+                [ moveOne ]
+    in
+    List.filterMap identity basemoves
+
+
+
+------------------------------------------------------------------------------------------------------------------------
+-- VIEW
+------------------------------------------------------------------------------------------------------------------------
 
 
 view : Model -> Html Msg

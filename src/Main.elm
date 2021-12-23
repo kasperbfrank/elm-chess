@@ -492,6 +492,7 @@ viewCell model rowIndex colIndex =
         isMove =
             List.any ((==) ( rowIndex, colIndex )) model.possibleMoves
 
+        isSelectedField : Bool
         isSelectedField =
             Maybe.map .position model.selection == Just ( rowIndex, colIndex )
 

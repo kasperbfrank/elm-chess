@@ -235,13 +235,12 @@ otherColor color =
 calculatePossibleMoves : PiecesDict -> Piece -> Position -> List Position
 calculatePossibleMoves pieces selectedPiece position =
     let
-        moves : Color -> MoveCount -> (Position -> Position) -> List Position
-        moves =
-            calculateMoves pieces position
-
         allMoves : Color -> MoveCount -> List (Position -> Position) -> List Position
         allMoves color moveCount moveFns =
-            List.foldl (\moveFn acc -> moves color moveCount moveFn ++ acc) [] moveFns
+            List.foldl
+                (\moveFn acc -> calculateMoves pieces position color moveCount moveFn ++ acc)
+                []
+                moveFns
     in
     case selectedPiece of
         Pawn color ->

@@ -198,7 +198,8 @@ update msg model =
             let
                 newPieces : Dict String Piece
                 newPieces =
-                    Dict.remove (positionToIndex from) model.pieces
+                    model.pieces
+                        |> Dict.remove (positionToIndex from)
                         |> Dict.insert (positionToIndex to) piece
 
                 enemyKing : Maybe Piece
@@ -565,24 +566,6 @@ viewPieceAndMove maybePiece isMove =
 
         ( Nothing, False ) ->
             Html.text ""
-
-
-
---let
---    fieldText : String
---    fieldText =
---        case maybePiece of
---            Just piece ->
---                pieceIcon piece
---
---            Nothing ->
---                if isMove then
---                    "o"
---
---                else
---                    ""
---in
---Html.text fieldText
 
 
 pieceIcon : Piece -> String

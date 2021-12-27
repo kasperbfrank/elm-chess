@@ -554,7 +554,7 @@ viewPieceAndMove maybePiece isMove =
         ( Just piece, True ) ->
             Html.div [ Attr.class "w-full h-full flex justify-center items-center relative" ]
                 [ Html.text (pieceIcon piece)
-                , Html.div [ Attr.class "absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
+                , Html.div [ Attr.class "scale-150 absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
                 ]
 
         ( Just piece, False ) ->

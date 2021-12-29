@@ -480,13 +480,10 @@ viewCell model rowIndex colIndex =
 
         styles : List (Attribute msg)
         styles =
-            [ Attr.class "h-20 w-20 flex justify-center items-center text-3xl font-bold"
+            [ Attr.class "h-20 w-20 flex justify-center items-center text-3xl font-bold relative"
             , Attr.class
                 (if isSelectedField then
                     "transition-all border-4 border-cyan-400 text-cyan-400"
-
-                 else if isMove then
-                    "text-emerald-400"
 
                  else
                     case maybePiece of
@@ -494,7 +491,11 @@ viewCell model rowIndex colIndex =
                             "text-" ++ String.toLower (colorToString (getColor piece))
 
                         Nothing ->
-                            ""
+                            if isMove then
+                                "text-emerald-400"
+
+                            else
+                                ""
                 )
             , cellClass
             ]
@@ -523,7 +524,7 @@ viewCell model rowIndex colIndex =
     in
     Html.div
         (styles ++ eventHandlers)
-        [ viewPieceAndMove maybePiece isMove ]
+        (viewPieceAndMove maybePiece isMove)
 
 
 getColor : Piece -> Color
@@ -548,23 +549,22 @@ getColor piece =
             color
 
 
-viewPieceAndMove : Maybe Piece -> Bool -> Html msg
+viewPieceAndMove : Maybe Piece -> Bool -> List (Html msg)
 viewPieceAndMove maybePiece isMove =
     case ( maybePiece, isMove ) of
         ( Just piece, True ) ->
-            Html.div [ Attr.class "w-full h-full flex justify-center items-center relative" ]
-                [ Html.text (pieceIcon piece)
-                , Html.div [ Attr.class "scale-150 absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
-                ]
+            [ Html.text (pieceIcon piece)
+            , Html.div [ Attr.class "scale-150 absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
+            ]
 
         ( Just piece, False ) ->
-            Html.text (pieceIcon piece)
+            [ Html.text (pieceIcon piece) ]
 
         ( Nothing, True ) ->
-            Html.text "o"
+            [ Html.text "o" ]
 
         ( Nothing, False ) ->
-            Html.text ""
+            [ Html.text "" ]
 
 
 pieceIcon : Piece -> String

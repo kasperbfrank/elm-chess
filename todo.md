@@ -1,7 +1,7 @@
 ## MVP
 - [x] Store pieces in Dict Position Piece
 - [x] Make recursive function to figure return possible moves.
-Something that takes a `MoveRestriction` describing how 
+Something that takes a `MoveCount` describing how 
 many moves are possible in any given direction, and a `(x, y)`
 describing distance of a single move a piece, i.e. Horsie would be
 `(1, 2)`, Queen would be `(1, 1)`

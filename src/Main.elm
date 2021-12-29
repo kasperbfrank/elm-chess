@@ -63,6 +63,25 @@ positionToIndex ( row, col ) =
     String.fromInt row ++ String.fromInt col
 
 
+positionFromIndex : String -> Position
+positionFromIndex indexStr =
+    let
+        ints : List Int
+        ints =
+            String.toList indexStr
+                |> List.map (String.fromChar >> (String.toInt >> Maybe.withDefault -1))
+
+        row : Int
+        row =
+            Maybe.withDefault 0 (List.head ints)
+
+        col : Int
+        col =
+            Maybe.withDefault 0 (List.head (List.reverse ints))
+    in
+    ( row, col )
+
+
 createPieceFromInitPosition : Position -> Maybe Piece
 createPieceFromInitPosition ( row, col ) =
     case row of

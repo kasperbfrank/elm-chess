@@ -203,7 +203,7 @@ update msg model =
 
                     else
                         ( Just (Selection piece position)
-                        , calculatePossibleMoves model.pieces piece position
+                        , calculatePossibleMoves model.pieces True piece position
                         )
             in
             ( { model
@@ -217,9 +217,7 @@ update msg model =
             let
                 newPieces : Dict String Piece
                 newPieces =
-                    model.pieces
-                        |> Dict.remove (positionToIndex from)
-                        |> Dict.insert (positionToIndex to) piece
+                    movePiece model.pieces piece from to
 
                 enemyKing : Maybe Piece
                 enemyKing =
@@ -241,6 +239,13 @@ update msg model =
             init ()
 
 
+movePiece : PiecesDict -> Piece -> Position -> Position -> PiecesDict
+movePiece pieces piece from to =
+    pieces
+        |> Dict.remove (positionToIndex from)
+        |> Dict.insert (positionToIndex to) piece
+
+
 otherColor : Color -> Color
 otherColor color =
     case color of
@@ -251,8 +256,8 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : PiecesDict -> Piece -> Position -> List Position
-calculatePossibleMoves pieces selectedPiece position =
+calculatePossibleMoves : PiecesDict -> Bool -> Piece -> Position -> List Position
+calculatePossibleMoves pieces checkKingMoves piece position =
     let
         allMoves : Color -> MoveCount -> List (Position -> Position) -> List Position
         allMoves color moveCount moveFns =
@@ -261,7 +266,7 @@ calculatePossibleMoves pieces selectedPiece position =
                 []
                 moveFns
     in
-    case selectedPiece of
+    case piece of
         Pawn color ->
             let
                 direction : Int -> Int -> Int
@@ -282,7 +287,6 @@ calculatePossibleMoves pieces selectedPiece position =
                 straightMoves
 
         Knight color ->
-            -- todo: filter allMoves to make sure King is not put in check
             allMoves
                 color
                 SingleMove
@@ -308,11 +312,47 @@ calculatePossibleMoves pieces selectedPiece position =
                 UnlimitedMoves
                 (straightMoves ++ diagonalMoves)
 
-        King color ->
-            allMoves
-                color
-                SingleMove
-                (straightMoves ++ diagonalMoves)
+        (King color) as king ->
+            let
+                moves : List Position
+                moves =
+                    allMoves
+                        color
+                        SingleMove
+                        (straightMoves ++ diagonalMoves)
+            in
+            if checkKingMoves then
+                let
+                    maybePair : String -> Maybe ( Position, Piece )
+                    maybePair key =
+                        Dict.get key pieces |> Maybe.map (Tuple.pair (positionFromIndex key))
+
+                    -- for all moves, check if move is in enemy calculated moves.
+                    -- Because of the way Pawn pieces can destroy other pieces,
+                    -- we need to actually simulate the move and calculate enemy moves
+                    -- from a state as if king had actually been moved
+                    calculateEnemyMoves : Position -> List Position
+                    calculateEnemyMoves move =
+                        let
+                            tempPieces =
+                                movePiece pieces king position move
+                        in
+                        Dict.keys tempPieces
+                            |> List.filterMap maybePair
+                            |> List.filter (Tuple.second >> getColor >> (/=) color)
+                            |> List.concatMap
+                                (\tuple ->
+                                    calculatePossibleMoves
+                                        tempPieces
+                                        False
+                                        (Tuple.second tuple)
+                                        (Tuple.first tuple)
+                                )
+                in
+                List.filter (\move -> not (List.member move (calculateEnemyMoves move))) moves
+
+            else
+                moves
 
 
 diagonalMoves : List (Position -> Position)

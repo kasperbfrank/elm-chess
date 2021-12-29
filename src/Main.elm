@@ -263,6 +263,7 @@ calculatePossibleMoves pieces selectedPiece position =
                 straightMoves
 
         Knight color ->
+            -- todo: filter allMoves to make sure King is not put in check
             allMoves
                 color
                 SingleMove

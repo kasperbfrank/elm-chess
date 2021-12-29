@@ -569,7 +569,6 @@ viewPieceAndMove maybePiece isMove =
 
 pieceIcon : Piece -> String
 pieceIcon piece =
-    -- todo: consider actually using color here for color of "Icon"
     case piece of
         Pawn _ ->
             "P"

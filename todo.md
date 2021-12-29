@@ -12,6 +12,7 @@ describing distance of a single move a piece, i.e. Horsie would be
 - [x] Make it more visible when a move destroys enemy unit
 
 ## Ideas
+- [ ] Hover effects for moves
 - [ ] Correct row / col naming, e.g. (A, 1)
 - [ ] Fn for translating e.g. 1 -> A
 - [ ] Drag pieces

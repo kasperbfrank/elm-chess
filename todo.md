@@ -6,7 +6,7 @@ many moves are possible in any given direction, and a `(x, y)`
 describing distance of a single move a piece, i.e. Horsie would be
 `(1, 2)`, Queen would be `(1, 1)`
 - [ ] Implement "castling" for King
-- [ ] Make sure player cannot put own King in check
+- [x] Make sure player cannot put own King in check
 - [ ] If pawn reaches other side of the board, make it possible to trade for other piece
 - [x] Implement victory state + play again
 - [x] Make it more visible when a move destroys enemy unit

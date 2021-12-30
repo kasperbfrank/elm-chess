@@ -42,7 +42,7 @@ type alias PiecesDict =
 
 type Msg
     = ClickedFieldWithPiece Piece Position
-    | ClickedFieldWithMove MovePieceEvent
+    | ClickedFieldWithMove Move
     | ClickedPlayAgainButton
 
 
@@ -50,7 +50,7 @@ type alias Selection =
     { piece : Piece, position : Position }
 
 
-type alias MovePieceEvent =
+type alias Move =
     { piece : Piece, from : Position, to : Position }
 
 
@@ -213,11 +213,11 @@ update msg model =
             , Cmd.none
             )
 
-        ClickedFieldWithMove { piece, from, to } ->
+        ClickedFieldWithMove ({ piece, from, to } as move) ->
             let
                 newPieces : Dict String Piece
                 newPieces =
-                    movePiece model.pieces piece from to
+                    doMove model.pieces move
 
                 enemyKing : Maybe Piece
                 enemyKing =
@@ -239,8 +239,8 @@ update msg model =
             init ()
 
 
-movePiece : PiecesDict -> Piece -> Position -> Position -> PiecesDict
-movePiece pieces piece from to =
+doMove : PiecesDict -> Move -> PiecesDict
+doMove pieces { piece, from, to } =
     pieces
         |> Dict.remove (positionToIndex from)
         |> Dict.insert (positionToIndex to) piece
@@ -322,37 +322,42 @@ calculatePossibleMoves pieces checkKingMoves piece position =
                         (straightMoves ++ diagonalMoves)
             in
             if checkKingMoves then
-                let
-                    maybePair : String -> Maybe ( Position, Piece )
-                    maybePair key =
-                        Dict.get key pieces |> Maybe.map (Tuple.pair (positionFromIndex key))
-
-                    -- for all moves, check if move is in enemy calculated moves.
-                    -- Because of the way Pawn pieces can destroy other pieces,
-                    -- we need to actually simulate the move and calculate enemy moves
-                    -- from a state as if king had actually been moved
-                    calculateEnemyMoves : Position -> List Position
-                    calculateEnemyMoves move =
-                        let
-                            tempPieces =
-                                movePiece pieces king position move
-                        in
-                        Dict.keys tempPieces
-                            |> List.filterMap maybePair
-                            |> List.filter (Tuple.second >> getColor >> (/=) color)
-                            |> List.concatMap
-                                (\tuple ->
-                                    calculatePossibleMoves
-                                        tempPieces
-                                        False
-                                        (Tuple.second tuple)
-                                        (Tuple.first tuple)
-                                )
-                in
-                List.filter (\move -> not (List.member move (calculateEnemyMoves move))) moves
+                moves
+                    |> List.map (Move king position)
+                    |> List.filter (isMoveSafe pieces color)
+                    |> List.map .to
 
             else
                 moves
+
+
+isMoveSafe : PiecesDict -> Color -> Move -> Bool
+isMoveSafe pieces color move =
+    not (List.member move.to (calculateEnemyMovesAfterMove pieces color move))
+
+
+calculateEnemyMovesAfterMove : PiecesDict -> Color -> Move -> List Position
+calculateEnemyMovesAfterMove pieces color move =
+    let
+        maybePair : String -> Maybe ( Position, Piece )
+        maybePair key =
+            Dict.get key pieces |> Maybe.map (Tuple.pair (positionFromIndex key))
+
+        tempPieces : PiecesDict
+        tempPieces =
+            doMove pieces move
+    in
+    Dict.keys tempPieces
+        |> List.filterMap maybePair
+        |> List.filter (Tuple.second >> getColor >> (/=) color)
+        |> List.concatMap
+            (\tuple ->
+                calculatePossibleMoves
+                    tempPieces
+                    False
+                    (Tuple.second tuple)
+                    (Tuple.first tuple)
+            )
 
 
 diagonalMoves : List (Position -> Position)
@@ -565,7 +570,7 @@ viewCell model rowIndex colIndex =
             if isMove then
                 case model.selection of
                     Just { piece, position } ->
-                        [ onClick (ClickedFieldWithMove (MovePieceEvent piece position ( rowIndex, colIndex ))) ]
+                        [ onClick (ClickedFieldWithMove (Move piece position ( rowIndex, colIndex ))) ]
 
                     Nothing ->
                         []

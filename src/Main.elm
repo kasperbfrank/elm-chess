@@ -315,7 +315,7 @@ calculatePossibleMoves pieces checkKingMoves piece position =
         allMoves : Color -> MoveCount -> List (Position -> Position) -> List Position
         allMoves color moveCount moveFns =
             List.foldl
-                (\moveFn acc -> calculateMoves pieces position color moveCount moveFn ++ acc)
+                (\moveFn acc -> calculateMovesFromPosition pieces position color moveCount moveFn ++ acc)
                 []
                 moveFns
     in
@@ -386,27 +386,26 @@ calculatePossibleMoves pieces checkKingMoves piece position =
 
 isMoveSafe : PiecesDict -> Color -> Move -> Bool
 isMoveSafe pieces color move =
-    not (List.member move.to (calculateEnemyMovesAfterMove pieces color move))
+    not <|
+        List.member
+            move.to
+            (calculateAllMovesForColor (doMove pieces move) (otherColor color))
 
 
-calculateEnemyMovesAfterMove : PiecesDict -> Color -> Move -> List Position
-calculateEnemyMovesAfterMove pieces color move =
+calculateAllMovesForColor : PiecesDict -> Color -> List Position
+calculateAllMovesForColor pieces color =
     let
         maybePair : String -> Maybe ( Position, Piece )
         maybePair key =
             Dict.get key pieces |> Maybe.map (Tuple.pair (positionFromIndex key))
-
-        tempPieces : PiecesDict
-        tempPieces =
-            doMove pieces move
     in
-    Dict.keys tempPieces
+    Dict.keys pieces
         |> List.filterMap maybePair
         |> List.filter (Tuple.second >> getColor >> (/=) color)
         |> List.concatMap
             (\tuple ->
                 calculatePossibleMoves
-                    tempPieces
+                    pieces
                     False
                     (Tuple.second tuple)
                     (Tuple.first tuple)
@@ -431,8 +430,8 @@ straightMoves =
     ]
 
 
-calculateMoves : PiecesDict -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position
-calculateMoves pieces startPosition playerColor moveCount tryMove =
+calculateMovesFromPosition : PiecesDict -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position
+calculateMovesFromPosition pieces startPosition playerColor moveCount tryMove =
     let
         move : List Position -> Position -> List Position
         move acc from =

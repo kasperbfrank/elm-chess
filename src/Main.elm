@@ -9,12 +9,12 @@ import Html.Events as Events exposing (onClick)
 
 
 type Piece
-    = Pawn Color
-    | Rook Color
-    | Knight Color
-    | Bishop Color
-    | Queen Color
-    | King Color
+    = Pawn Color Int
+    | Rook Color Int
+    | Knight Color Int
+    | Bishop Color Int
+    | Queen Color Int
+    | King Color Int
 
 
 type Color
@@ -58,6 +58,50 @@ type alias Position =
     ( Int, Int )
 
 
+incrementMoves : Piece -> Piece
+incrementMoves piece =
+    case piece of
+        Pawn color moveCount ->
+            Pawn color (moveCount + 1)
+
+        Rook color moveCount ->
+            Rook color (moveCount + 1)
+
+        Knight color moveCount ->
+            Knight color (moveCount + 1)
+
+        Bishop color moveCount ->
+            Bishop color (moveCount + 1)
+
+        Queen color moveCount ->
+            Queen color (moveCount + 1)
+
+        King color moveCount ->
+            King color (moveCount + 1)
+
+
+isFirstMove : Piece -> Bool
+isFirstMove piece =
+    case piece of
+        Pawn _ moveCount ->
+            moveCount == 0
+
+        Rook _ moveCount ->
+            moveCount == 0
+
+        Knight _ moveCount ->
+            moveCount == 0
+
+        Bishop _ moveCount ->
+            moveCount == 0
+
+        Queen _ moveCount ->
+            moveCount == 0
+
+        King _ moveCount ->
+            moveCount == 0
+
+
 positionToIndex : Position -> String
 positionToIndex ( row, col ) =
     String.fromInt row ++ String.fromInt col
@@ -88,63 +132,63 @@ createPieceFromInitPosition ( row, col ) =
         1 ->
             case col of
                 1 ->
-                    Just (Rook White)
+                    Just (Rook White 0)
 
                 2 ->
-                    Just (Knight White)
+                    Just (Knight White 0)
 
                 3 ->
-                    Just (Bishop White)
+                    Just (Bishop White 0)
 
                 4 ->
-                    Just (Queen White)
+                    Just (Queen White 0)
 
                 5 ->
-                    Just (King White)
+                    Just (King White 0)
 
                 6 ->
-                    Just (Bishop White)
+                    Just (Bishop White 0)
 
                 7 ->
-                    Just (Knight White)
+                    Just (Knight White 0)
 
                 8 ->
-                    Just (Rook White)
+                    Just (Rook White 0)
 
                 _ ->
                     Nothing
 
         2 ->
-            Just (Pawn White)
+            Just (Pawn White 0)
 
         7 ->
-            Just (Pawn Black)
+            Just (Pawn Black 0)
 
         8 ->
             case col of
                 1 ->
-                    Just (Rook Black)
+                    Just (Rook Black 0)
 
                 2 ->
-                    Just (Knight Black)
+                    Just (Knight Black 0)
 
                 3 ->
-                    Just (Bishop Black)
+                    Just (Bishop Black 0)
 
                 4 ->
-                    Just (King Black)
+                    Just (King Black 0)
 
                 5 ->
-                    Just (Queen Black)
+                    Just (Queen Black 0)
 
                 6 ->
-                    Just (Bishop Black)
+                    Just (Bishop Black 0)
 
                 7 ->
-                    Just (Knight Black)
+                    Just (Knight Black 0)
 
                 8 ->
-                    Just (Rook Black)
+                    Just (Rook Black 0)
 
                 _ ->
                     Nothing
@@ -219,10 +263,19 @@ update msg model =
                 newPieces =
                     doMove model.pieces move
 
+                isOtherKing : Piece -> Bool
+                isOtherKing piece_ =
+                    case piece_ of
+                        King color _ ->
+                            color == otherColor model.turn
+
+                        _ ->
+                            False
+
                 enemyKing : Maybe Piece
                 enemyKing =
                     Dict.values newPieces
-                        |> List.filter ((==) (King (otherColor model.turn)))
+                        |> List.filter isOtherKing
                         |> List.head
             in
             ( { model
@@ -243,7 +296,7 @@ doMove : PiecesDict -> Move -> PiecesDict
 doMove pieces { piece, from, to } =
     pieces
         |> Dict.remove (positionToIndex from)
-        |> Dict.insert (positionToIndex to) piece
+        |> Dict.insert (positionToIndex to) (incrementMoves piece)
 
 
 otherColor : Color -> Color
@@ -267,7 +320,7 @@ calculatePossibleMoves pieces checkKingMoves piece position =
                 moveFns
     in
     case piece of
-        Pawn color ->
+        Pawn color _ ->
             let
                 direction : Int -> Int -> Int
                 direction =
@@ -278,15 +331,15 @@ calculatePossibleMoves pieces checkKingMoves piece position =
                         Black ->
                             (-)
             in
-            calculatePawnMoves pieces color direction position
+            calculatePawnMoves pieces color direction position piece
 
-        Rook color ->
+        Rook color _ ->
             allMoves
                 color
                 UnlimitedMoves
                 straightMoves
 
-        Knight color ->
+        Knight color _ ->
             allMoves
                 color
                 SingleMove
@@ -300,19 +353,19 @@ calculatePossibleMoves pieces checkKingMoves piece position =
                 , \( row, col ) -> ( row + 2, col - 1 )
                 ]
 
-        Bishop color ->
+        Bishop color _ ->
             allMoves
                 color
                 UnlimitedMoves
                 diagonalMoves
 
-        Queen color ->
+        Queen color _ ->
             allMoves
                 color
                 UnlimitedMoves
                 (straightMoves ++ diagonalMoves)
 
-        (King color) as king ->
+        (King color moveCount) as king ->
             let
                 moves : List Position
                 moves =
@@ -422,8 +475,8 @@ isPositionOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-calculatePawnMoves : PiecesDict -> Color -> (Int -> Int -> Int) -> Position -> List Position
-calculatePawnMoves pieces playerColor direction ( row, col ) =
+calculatePawnMoves : PiecesDict -> Color -> (Int -> Int -> Int) -> Position -> Piece -> List Position
+calculatePawnMoves pieces playerColor direction ( row, col ) piece =
     let
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =
@@ -440,17 +493,8 @@ calculatePawnMoves pieces playerColor direction ( row, col ) =
 
                     else
                         Nothing
-
-                canMoveTwo : Bool
-                canMoveTwo =
-                    case playerColor of
-                        White ->
-                            row == 2
-
-                        Black ->
-                            row == 7
             in
-            if canMoveTwo && moveOne /= Nothing then
+            if isFirstMove piece && moveOne /= Nothing then
                 [ Just ( direction row 2, col ), moveOne ]
 
             else
@@ -595,22 +639,22 @@ viewCell model rowIndex colIndex =
 getColor : Piece -> Color
 getColor piece =
     case piece of
-        Pawn color ->
+        Pawn color _ ->
             color
 
-        Rook color ->
+        Rook color _ ->
             color
 
-        Knight color ->
+        Knight color _ ->
             color
 
-        Bishop color ->
+        Bishop color _ ->
             color
 
-        Queen color ->
+        Queen color _ ->
             color
 
-        King color ->
+        King color _ ->
             color
 
 
@@ -635,22 +679,22 @@ viewPieceAndMove maybePiece isMove =
 pieceIcon : Piece -> String
 pieceIcon piece =
     case piece of
-        Pawn _ ->
+        Pawn _ _ ->
             "P"
 
-        Rook _ ->
+        Rook _ _ ->
             "R"
 
-        Knight _ ->
+        Knight _ _ ->
             "H"
 
-        Bishop _ ->
+        Bishop _ _ ->
             "B"
 
-        Queen _ ->
+        Queen _ _ ->
             "Q"
 
-        King _ ->
+        King _ _ ->
             "K"
 
 

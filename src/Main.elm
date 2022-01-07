@@ -9,12 +9,12 @@ import Html.Events as Events exposing (onClick)
 
 
 type Piece
-    = Pawn Color Int
-    | Rook Color Int
-    | Knight Color Int
-    | Bishop Color Int
-    | Queen Color Int
-    | King Color Int
+    = Pawn
+    | Rook
+    | Knight
+    | Bishop
+    | Queen
+    | King
 
 
 type Color
@@ -22,9 +22,16 @@ type Color
     | Black
 
 
-type MoveCount
+type MoveRestriction
     = SingleMove
     | UnlimitedMoves
+
+
+type alias PieceDetails =
+    { piece : Piece
+    , color : Color
+    , moveCount : Int
+    }
 
 
 type alias Model =
@@ -37,134 +44,90 @@ type alias Model =
 
 
 type alias BoardState =
-    Dict Position Piece
+    Dict Position PieceDetails
 
 
 type Msg
-    = ClickedFieldWithPiece Piece Position
+    = ClickedFieldWithPiece PieceDetails Position
     | ClickedFieldWithMove Move
     | ClickedPlayAgainButton
 
 
 type alias Selection =
-    { piece : Piece, position : Position }
+    { piece : PieceDetails, position : Position }
 
 
 type alias Move =
-    { piece : Piece, from : Position, to : Position }
+    { pieceDetails : PieceDetails, from : Position, to : Position }
 
 
 type alias Position =
     ( Int, Int )
 
 
-incrementMoves : Piece -> Piece
-incrementMoves piece =
-    case piece of
-        Pawn color moveCount ->
-            Pawn color (moveCount + 1)
-
-        Rook color moveCount ->
-            Rook color (moveCount + 1)
-
-        Knight color moveCount ->
-            Knight color (moveCount + 1)
-
-        Bishop color moveCount ->
-            Bishop color (moveCount + 1)
-
-        Queen color moveCount ->
-            Queen color (moveCount + 1)
-
-        King color moveCount ->
-            King color (moveCount + 1)
-
-
-isFirstMove : Piece -> Bool
-isFirstMove piece =
-    case piece of
-        Pawn _ moveCount ->
-            moveCount == 0
-
-        Rook _ moveCount ->
-            moveCount == 0
-
-        Knight _ moveCount ->
-            moveCount == 0
-
-        Bishop _ moveCount ->
-            moveCount == 0
-
-        Queen _ moveCount ->
-            moveCount == 0
-
-        King _ moveCount ->
-            moveCount == 0
-
-
-createPieceFromInitPosition : Position -> Maybe Piece
+createPieceFromInitPosition : Position -> Maybe PieceDetails
 createPieceFromInitPosition ( row, col ) =
     case row of
         1 ->
             case col of
                 1 ->
-                    Just (Rook White 0)
+                    Just (PieceDetails Rook White 0)
 
                 2 ->
-                    Just (Knight White 0)
+                    Just (PieceDetails Knight White 0)
 
                 3 ->
-                    Just (Bishop White 0)
+                    Just (PieceDetails Bishop White 0)
 
                 4 ->
-                    Just (Queen White 0)
+                    Just (PieceDetails Queen White 0)
 
                 5 ->
-                    Just (King White 0)
+                    Just (PieceDetails King White 0)
 
                 6 ->
-                    Just (Bishop White 0)
+                    Just (PieceDetails Bishop White 0)
 
                 7 ->
-                    Just (Knight White 0)
+                    Just (PieceDetails Knight White 0)
 
                 8 ->
-                    Just (Rook White 0)
+                    Just (PieceDetails Rook White 0)
 
                 _ ->
                     Nothing
 
         2 ->
-            Just (Pawn White 0)
+            Just (PieceDetails Pawn White 0)
 
         7 ->
-            Just (Pawn Black 0)
+            Just (PieceDetails Pawn Black 0)
 
         8 ->
             case col of
                 1 ->
-                    Just (Rook Black 0)
+                    Just (PieceDetails Rook Black 0)
 
                 2 ->
-                    Just (Knight Black 0)
+                    Just (PieceDetails Knight Black 0)
 
                 3 ->
-                    Just (Bishop Black 0)
+                    Just (PieceDetails Bishop Black 0)
 
                 4 ->
-                    Just (King Black 0)
+                    Just (PieceDetails King Black 0)
 
                 5 ->
-                    Just (Queen Black 0)
+                    Just (PieceDetails Queen Black 0)
 
                 6 ->
-                    Just (Bishop Black 0)
+                    Just (PieceDetails Bishop Black 0)
 
                 7 ->
-                    Just (Knight Black 0)
+                    Just (PieceDetails Knight Black 0)
 
                 8 ->
-                    Just (Rook Black 0)
+                    Just (PieceDetails Rook Black 0)
 
                 _ ->
                     Nothing
@@ -173,10 +136,10 @@ createPieceFromInitPosition ( row, col ) =
             Nothing
 
 
-createPieceWithIndexTuple : Position -> Maybe ( Position, Piece )
+createPieceWithIndexTuple : Position -> Maybe ( Position, PieceDetails )
 createPieceWithIndexTuple position =
     let
-        maybePiece : Maybe Piece
+        maybePiece : Maybe PieceDetails
         maybePiece =
             createPieceFromInitPosition position
     in
@@ -233,22 +196,22 @@ update msg model =
             , Cmd.none
             )
 
-        ClickedFieldWithMove ({ piece, from, to } as move) ->
+        ClickedFieldWithMove ({ pieceDetails, from, to } as move) ->
             let
-                newBoardState : Dict Position Piece
+                newBoardState : BoardState
                 newBoardState =
                     doMove model.board move
 
-                isOtherKing : Piece -> Bool
-                isOtherKing piece_ =
-                    case piece_ of
-                        King color _ ->
+                isOtherKing : PieceDetails -> Bool
+                isOtherKing { piece, color } =
+                    case piece of
+                        King ->
                             color == otherColor model.turn
 
                         _ ->
                             False
 
-                enemyKing : Maybe Piece
+                enemyKing : Maybe PieceDetails
                 enemyKing =
                     Dict.values newBoardState
                         |> List.filter isOtherKing
@@ -269,10 +232,10 @@ update msg model =
 
 
 doMove : BoardState -> Move -> BoardState
-doMove boardState { piece, from, to } =
+doMove boardState { pieceDetails, from, to } =
     boardState
         |> Dict.remove from
-        |> Dict.insert to (incrementMoves piece)
+        |> Dict.insert to { pieceDetails | moveCount = pieceDetails.moveCount + 1 }
 
 
 otherColor : Color -> Color
@@ -285,18 +248,18 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : BoardState -> Bool -> Piece -> Position -> List Position
-calculatePossibleMoves boardState checkKingMoves piece position =
+calculatePossibleMoves : BoardState -> Bool -> PieceDetails -> Position -> List Position
+calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as pieceDetails) position =
     let
-        allMoves : Color -> MoveCount -> List (Position -> Position) -> List Position
-        allMoves color moveCount moveFns =
+        allMoves : MoveRestriction -> List (Position -> Position) -> List Position
+        allMoves moveRestriction moveFns =
             List.foldl
-                (\moveFn acc -> calculateMovesFromPosition boardState position color moveCount moveFn ++ acc)
+                (\moveFn acc -> calculateMovesFromPosition boardState position color moveRestriction moveFn ++ acc)
                 []
                 moveFns
     in
     case piece of
-        Pawn color _ ->
+        Pawn ->
             let
                 direction : Int -> Int -> Int
                 direction =
@@ -307,17 +270,15 @@ calculatePossibleMoves boardState checkKingMoves piece position =
                         Black ->
                             (-)
             in
-            calculatePawnMoves boardState color direction position piece
+            calculatePawnMoves boardState color direction position pieceDetails
 
-        Rook color _ ->
+        Rook ->
             allMoves
-                color
                 UnlimitedMoves
                 straightMoves
 
-        Knight color _ ->
+        Knight ->
             allMoves
-                color
                 SingleMove
                 [ \( row, col ) -> ( row + 2, col + 1 )
                 , \( row, col ) -> ( row + 1, col + 2 )
@@ -329,30 +290,27 @@ calculatePossibleMoves boardState checkKingMoves piece position =
                 , \( row, col ) -> ( row + 2, col - 1 )
                 ]
 
-        Bishop color _ ->
+        Bishop ->
             allMoves
-                color
                 UnlimitedMoves
                 diagonalMoves
 
-        Queen color _ ->
+        Queen ->
             allMoves
-                color
                 UnlimitedMoves
                 (straightMoves ++ diagonalMoves)
 
-        (King color moveCount) as king ->
+        King ->
             let
                 moves : List Position
                 moves =
                     allMoves
-                        color
                         SingleMove
                         (straightMoves ++ diagonalMoves)
             in
             if checkKingMoves then
                 moves
-                    |> List.map (Move king position)
+                    |> List.map (Move pieceDetails position)
                     |> List.filter (isMoveSafe boardState color)
                     |> List.map .to
 
@@ -371,13 +329,13 @@ isMoveSafe boardState color move =
 calculateAllMovesForColor : BoardState -> Color -> List Position
 calculateAllMovesForColor boardState color =
     let
-        maybePair : Position -> Maybe ( Position, Piece )
+        maybePair : Position -> Maybe ( Position, PieceDetails )
         maybePair key =
             Dict.get key boardState |> Maybe.map (Tuple.pair key)
     in
     Dict.keys boardState
         |> List.filterMap maybePair
-        |> List.filter (Tuple.second >> getColor >> (/=) color)
+        |> List.filter (Tuple.second >> .color >> (/=) color)
         |> List.concatMap
             (\tuple ->
                 calculatePossibleMoves
@@ -406,8 +364,8 @@ straightMoves =
     ]
 
 
-calculateMovesFromPosition : BoardState -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position
-calculateMovesFromPosition boardState startPosition playerColor moveCount tryMove =
+calculateMovesFromPosition : BoardState -> Position -> Color -> MoveRestriction -> (Position -> Position) -> List Position
+calculateMovesFromPosition boardState startPosition playerColor moveRestriction tryMove =
     let
         move : List Position -> Position -> List Position
         move acc from =
@@ -416,14 +374,14 @@ calculateMovesFromPosition boardState startPosition playerColor moveCount tryMov
                 to =
                     tryMove from
 
-                inhabitant : Maybe Piece
+                inhabitant : Maybe PieceDetails
                 inhabitant =
                     Dict.get to boardState
             in
             if isPositionOnBoard to then
                 case inhabitant of
-                    Just piece ->
-                        if getColor piece == playerColor then
+                    Just { color } ->
+                        if color == playerColor then
                             acc
 
                         else
@@ -432,7 +390,7 @@ calculateMovesFromPosition boardState startPosition playerColor moveCount tryMov
                             to :: acc
 
                     Nothing ->
-                        if moveCount == SingleMove then
+                        if moveRestriction == SingleMove then
                             to :: acc
 
                         else
@@ -450,8 +408,8 @@ isPositionOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-calculatePawnMoves : BoardState -> Color -> (Int -> Int -> Int) -> Position -> Piece -> List Position
-calculatePawnMoves boardState playerColor direction ( row, col ) piece =
+calculatePawnMoves : BoardState -> Color -> (Int -> Int -> Int) -> Position -> PieceDetails -> List Position
+calculatePawnMoves boardState playerColor direction ( row, col ) { moveCount } =
     let
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =
@@ -469,7 +427,7 @@ calculatePawnMoves boardState playerColor direction ( row, col ) piece =
                     else
                         Nothing
             in
-            if isFirstMove piece && moveOne /= Nothing then
+            if moveCount == 0 && moveOne /= Nothing then
                 [ Just ( direction row 2, col ), moveOne ]
 
             else
@@ -482,7 +440,7 @@ calculatePawnMoves boardState playerColor direction ( row, col ) piece =
                 maybeDestroyMove : Position -> Maybe Position
                 maybeDestroyMove move =
                     Dict.get move boardState
-                        |> maybeWhen (getColor >> (/=) playerColor)
+                        |> maybeWhen (.color >> (/=) playerColor)
                         |> Maybe.map (\_ -> move)
             in
             [ maybeDestroyMove ( direction row 1, col - 1 )
@@ -550,7 +508,7 @@ viewCell model rowIndex colIndex =
                 else
                     "bg-slate-200"
 
-        maybePiece : Maybe Piece
+        maybePiece : Maybe PieceDetails
         maybePiece =
             Dict.get ( rowIndex, colIndex ) model.board
 
@@ -571,8 +529,8 @@ viewCell model rowIndex colIndex =
 
                  else
                     case maybePiece of
-                        Just piece ->
-                            "text-" ++ String.toLower (colorToString (getColor piece))
+                        Just { color } ->
+                            "text-" ++ String.toLower (colorToString color)
 
                         Nothing ->
                             if isMove then
@@ -596,9 +554,9 @@ viewCell model rowIndex colIndex =
 
             else
                 case maybePiece of
-                    Just piece ->
-                        if getColor piece == model.turn then
-                            [ onClick (ClickedFieldWithPiece piece ( rowIndex, colIndex )) ]
+                    Just ({ piece, color } as pieceDetails) ->
+                        if color == model.turn then
+                            [ onClick (ClickedFieldWithPiece pieceDetails ( rowIndex, colIndex )) ]
 
                         else
                             []
@@ -611,37 +569,15 @@ viewCell model rowIndex colIndex =
         (viewPieceAndMove maybePiece isMove)
 
 
-getColor : Piece -> Color
-getColor piece =
-    case piece of
-        Pawn color _ ->
-            color
-
-        Rook color _ ->
-            color
-
-        Knight color _ ->
-            color
-
-        Bishop color _ ->
-            color
-
-        Queen color _ ->
-            color
-
-        King color _ ->
-            color
-
-
-viewPieceAndMove : Maybe Piece -> Bool -> List (Html msg)
-viewPieceAndMove maybePiece isMove =
-    case ( maybePiece, isMove ) of
-        ( Just piece, True ) ->
+viewPieceAndMove : Maybe PieceDetails -> Bool -> List (Html msg)
+viewPieceAndMove maybePieceDetails isMove =
+    case ( maybePieceDetails, isMove ) of
+        ( Just { piece }, True ) ->
             [ Html.text (pieceIcon piece)
             , Html.div [ Attr.class "scale-150 absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
             ]
 
-        ( Just piece, False ) ->
+        ( Just { piece }, False ) ->
             [ Html.text (pieceIcon piece) ]
 
         ( Nothing, True ) ->
@@ -654,22 +590,22 @@ viewPieceAndMove maybePiece isMove =
 pieceIcon : Piece -> String
 pieceIcon piece =
     case piece of
-        Pawn _ _ ->
+        Pawn ->
             "P"
 
-        Rook _ _ ->
+        Rook ->
             "R"
 
-        Knight _ _ ->
+        Knight ->
             "H"
 
-        Bishop _ _ ->
+        Bishop ->
             "B"
 
-        Queen _ _ ->
+        Queen ->
             "Q"
 
-        King _ _ ->
+        King ->
             "K"
 
 

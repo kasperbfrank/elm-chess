@@ -37,36 +37,36 @@ type alias PieceDetails =
 type alias Model =
     { board : BoardState
     , selection : Maybe Selection
-    , possibleMoves : List Position
+    , possibleMoves : List Square
     , turn : Color
     , victory : Maybe Color
     }
 
 
 type alias BoardState =
-    Dict Position PieceDetails
+    Dict Square PieceDetails
 
 
 type Msg
-    = ClickedFieldWithPiece PieceDetails Position
+    = ClickedFieldWithPiece PieceDetails Square
     | ClickedFieldWithMove Move
     | ClickedPlayAgainButton
 
 
 type alias Selection =
-    { piece : PieceDetails, position : Position }
+    { piece : PieceDetails, square : Square }
 
 
 type alias Move =
-    { pieceDetails : PieceDetails, from : Position, to : Position }
+    { pieceDetails : PieceDetails, from : Square, to : Square }
 
 
-type alias Position =
+type alias Square =
     ( Int, Int )
 
 
-createPieceFromInitPosition : Position -> Maybe PieceDetails
-createPieceFromInitPosition ( row, col ) =
+createPieceFromInitSquare : Square -> Maybe PieceDetails
+createPieceFromInitSquare ( row, col ) =
     case row of
         1 ->
             case col of
@@ -136,14 +136,14 @@ createPieceFromInitPosition ( row, col ) =
             Nothing
 
 
-createPieceWithIndexTuple : Position -> Maybe ( Position, PieceDetails )
-createPieceWithIndexTuple position =
+createPieceWithIndexTuple : Square -> Maybe ( Square, PieceDetails )
+createPieceWithIndexTuple square =
     let
         maybePiece : Maybe PieceDetails
         maybePiece =
-            createPieceFromInitPosition position
+            createPieceFromInitSquare square
     in
-    Maybe.map (Tuple.pair position) maybePiece
+    Maybe.map (Tuple.pair square) maybePiece
 
 
 initBoardState : BoardState
@@ -178,15 +178,15 @@ init _ =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        ClickedFieldWithPiece piece position ->
+        ClickedFieldWithPiece piece square ->
             let
                 ( selectedPiece, possibleMoves ) =
                     if Just piece == Maybe.map .piece model.selection then
                         ( Nothing, [] )
 
                     else
-                        ( Just (Selection piece position)
-                        , calculatePossibleMoves model.board True piece position
+                        ( Just (Selection piece square)
+                        , calculatePossibleMoves model.board True piece square
                         )
             in
             ( { model
@@ -248,13 +248,13 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : BoardState -> Bool -> PieceDetails -> Position -> List Position
-calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as pieceDetails) position =
+calculatePossibleMoves : BoardState -> Bool -> PieceDetails -> Square -> List Square
+calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as pieceDetails) square =
     let
-        allMoves : MoveRestriction -> List (Position -> Position) -> List Position
+        allMoves : MoveRestriction -> List (Square -> Square) -> List Square
         allMoves moveRestriction moveFns =
             List.foldl
-                (\moveFn acc -> calculateMovesFromPosition boardState position color moveRestriction moveFn ++ acc)
+                (\moveFn acc -> calculateMovesFromSquare boardState square color moveRestriction moveFn ++ acc)
                 []
                 moveFns
     in
@@ -270,7 +270,7 @@ calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as
                         Black ->
                             (-)
             in
-            calculatePawnMoves boardState color direction position pieceDetails
+            calculatePawnMoves boardState color direction square pieceDetails
 
         Rook ->
             allMoves
@@ -302,7 +302,7 @@ calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as
 
         King ->
             let
-                moves : List Position
+                moves : List Square
                 moves =
                     allMoves
                         SingleMove
@@ -310,7 +310,7 @@ calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as
             in
             if checkKingMoves then
                 moves
-                    |> List.map (Move pieceDetails position)
+                    |> List.map (Move pieceDetails square)
                     |> List.filter (isMoveSafe boardState color)
                     |> List.map .to
 
@@ -326,10 +326,10 @@ isMoveSafe boardState color move =
             (calculateAllMovesForColor (doMove boardState move) (otherColor color))
 
 
-calculateAllMovesForColor : BoardState -> Color -> List Position
+calculateAllMovesForColor : BoardState -> Color -> List Square
 calculateAllMovesForColor boardState color =
     let
-        maybePair : Position -> Maybe ( Position, PieceDetails )
+        maybePair : Square -> Maybe ( Square, PieceDetails )
         maybePair key =
             Dict.get key boardState |> Maybe.map (Tuple.pair key)
     in
@@ -346,7 +346,7 @@ calculateAllMovesForColor boardState color =
             )
 
 
-diagonalMoves : List (Position -> Position)
+diagonalMoves : List (Square -> Square)
 diagonalMoves =
     [ \( row, col ) -> ( row + 1, col + 1 )
     , \( row, col ) -> ( row + 1, col - 1 )
@@ -355,7 +355,7 @@ diagonalMoves =
     ]
 
 
-straightMoves : List (Position -> Position)
+straightMoves : List (Square -> Square)
 straightMoves =
     [ \( row, col ) -> ( row + 1, col )
     , \( row, col ) -> ( row - 1, col )
@@ -364,13 +364,13 @@ straightMoves =
     ]
 
 
-calculateMovesFromPosition : BoardState -> Position -> Color -> MoveRestriction -> (Position -> Position) -> List Position
-calculateMovesFromPosition boardState startPosition playerColor moveRestriction tryMove =
+calculateMovesFromSquare : BoardState -> Square -> Color -> MoveRestriction -> (Square -> Square) -> List Square
+calculateMovesFromSquare boardState fromSquare playerColor moveRestriction tryMove =
     let
-        move : List Position -> Position -> List Position
+        move : List Square -> Square -> List Square
         move acc from =
             let
-                to : Position
+                to : Square
                 to =
                     tryMove from
 
@@ -378,7 +378,7 @@ calculateMovesFromPosition boardState startPosition playerColor moveRestriction 
                 inhabitant =
                     Dict.get to boardState
             in
-            if isPositionOnBoard to then
+            if isSquareOnBoard to then
                 case inhabitant of
                     Just { color } ->
                         if color == playerColor then
@@ -400,15 +400,15 @@ calculateMovesFromPosition boardState startPosition playerColor moveRestriction 
             else
                 acc
     in
-    move [] startPosition
+    move [] fromSquare
 
 
-isPositionOnBoard : Position -> Bool
-isPositionOnBoard ( row, col ) =
+isSquareOnBoard : Square -> Bool
+isSquareOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-calculatePawnMoves : BoardState -> Color -> (Int -> Int -> Int) -> Position -> PieceDetails -> List Position
+calculatePawnMoves : BoardState -> Color -> (Int -> Int -> Int) -> Square -> PieceDetails -> List Square
 calculatePawnMoves boardState playerColor direction ( row, col ) { moveCount } =
     let
         baseMoves : List (Maybe ( Int, Int ))
@@ -437,7 +437,7 @@ calculatePawnMoves boardState playerColor direction ( row, col ) { moveCount } =
         destroyMoves =
             -- Pawn can destroy another unit by moving one forward diagonally
             let
-                maybeDestroyMove : Position -> Maybe Position
+                maybeDestroyMove : Square -> Maybe Square
                 maybeDestroyMove move =
                     Dict.get move boardState
                         |> maybeWhen (.color >> (/=) playerColor)
@@ -518,7 +518,7 @@ viewCell model rowIndex colIndex =
 
         isSelectedField : Bool
         isSelectedField =
-            Maybe.map .position model.selection == Just ( rowIndex, colIndex )
+            Maybe.map .square model.selection == Just ( rowIndex, colIndex )
 
         styles : List (Attribute msg)
         styles =
@@ -546,8 +546,8 @@ viewCell model rowIndex colIndex =
         eventHandlers =
             if isMove then
                 case model.selection of
-                    Just { piece, position } ->
-                        [ onClick (ClickedFieldWithMove (Move piece position ( rowIndex, colIndex ))) ]
+                    Just { piece, square } ->
+                        [ onClick (ClickedFieldWithMove (Move piece square ( rowIndex, colIndex ))) ]
 
                     Nothing ->
                         []

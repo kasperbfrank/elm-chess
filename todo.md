@@ -10,6 +10,9 @@ describing distance of a single move a piece, i.e. Horsie would be
 - [ ] If pawn reaches other side of the board, make it possible to trade for other piece
 - [x] Implement victory state + play again
 - [x] Make it more visible when a move destroys enemy unit
+- [ ] Implement [en passant rule](https://www.chess.com/terms/en-passant)
+  - Make move history
+  - Check if last move was move that allows for en passant
 
 ## Ideas
 - [ ] Hover effects for moves

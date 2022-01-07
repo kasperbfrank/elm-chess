@@ -11,7 +11,8 @@ describing distance of a single move a piece, i.e. Horsie would be
 - [x] Implement victory state + play again
 - [x] Make it more visible when a move destroys enemy unit
 - [ ] Implement [en passant rule](https://www.chess.com/terms/en-passant)
-  - Make move history
+  - Make move history (this also eliminates the need for moveCount)
+  - Add id to PieceDetails
   - Check if last move was move that allows for en passant
 
 ## Ideas

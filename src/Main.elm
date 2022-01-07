@@ -28,7 +28,7 @@ type MoveCount
 
 
 type alias Model =
-    { pieces : PiecesDict
+    { board : BoardState
     , selection : Maybe Selection
     , possibleMoves : List Position
     , turn : Color
@@ -36,8 +36,8 @@ type alias Model =
     }
 
 
-type alias PiecesDict =
-    Dict String Piece
+type alias BoardState =
+    Dict Position Piece
 
 
 type Msg
@@ -100,30 +100,6 @@ isFirstMove piece =
 
         King _ moveCount ->
             moveCount == 0
-
-
-positionToIndex : Position -> String
-positionToIndex ( row, col ) =
-    String.fromInt row ++ String.fromInt col
-
-
-positionFromIndex : String -> Position
-positionFromIndex indexStr =
-    let
-        ints : List Int
-        ints =
-            String.toList indexStr
-                |> List.map (String.fromChar >> (String.toInt >> Maybe.withDefault -1))
-
-        row : Int
-        row =
-            Maybe.withDefault 0 (List.head ints)
-
-        col : Int
-        col =
-            Maybe.withDefault 0 (List.head (List.reverse ints))
-    in
-    ( row, col )
 
 
 createPieceFromInitPosition : Position -> Maybe Piece
@@ -197,18 +173,18 @@ createPieceFromInitPosition ( row, col ) =
             Nothing
 
 
-createPieceWithIndexTuple : Position -> Maybe ( String, Piece )
+createPieceWithIndexTuple : Position -> Maybe ( Position, Piece )
 createPieceWithIndexTuple position =
     let
         maybePiece : Maybe Piece
         maybePiece =
             createPieceFromInitPosition position
     in
-    Maybe.map (Tuple.pair (positionToIndex position)) maybePiece
+    Maybe.map (Tuple.pair position) maybePiece
 
 
-initPieces : PiecesDict
-initPieces =
+initBoardState : BoardState
+initBoardState =
     List.range 1 8
         |> List.map (\n -> ( n, List.range 1 8 ))
         |> List.concatMap
@@ -220,7 +196,7 @@ initPieces =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { pieces = initPieces
+    ( { board = initBoardState
       , selection = Nothing
       , possibleMoves = []
       , turn = White
@@ -247,7 +223,7 @@ update msg model =
 
                     else
                         ( Just (Selection piece position)
-                        , calculatePossibleMoves model.pieces True piece position
+                        , calculatePossibleMoves model.board True piece position
                         )
             in
             ( { model
@@ -259,9 +235,9 @@ update msg model =
 
         ClickedFieldWithMove ({ piece, from, to } as move) ->
             let
-                newPieces : Dict String Piece
-                newPieces =
-                    doMove model.pieces move
+                newBoardState : Dict Position Piece
+                newBoardState =
+                    doMove model.board move
 
                 isOtherKing : Piece -> Bool
                 isOtherKing piece_ =
@@ -274,12 +250,12 @@ update msg model =
 
                 enemyKing : Maybe Piece
                 enemyKing =
-                    Dict.values newPieces
+                    Dict.values newBoardState
                         |> List.filter isOtherKing
                         |> List.head
             in
             ( { model
-                | pieces = newPieces
+                | board = newBoardState
                 , possibleMoves = []
                 , selection = Nothing
                 , turn = otherColor model.turn
@@ -292,11 +268,11 @@ update msg model =
             init ()
 
 
-doMove : PiecesDict -> Move -> PiecesDict
-doMove pieces { piece, from, to } =
-    pieces
-        |> Dict.remove (positionToIndex from)
-        |> Dict.insert (positionToIndex to) (incrementMoves piece)
+doMove : BoardState -> Move -> BoardState
+doMove boardState { piece, from, to } =
+    boardState
+        |> Dict.remove from
+        |> Dict.insert to (incrementMoves piece)
 
 
 otherColor : Color -> Color
@@ -309,13 +285,13 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : PiecesDict -> Bool -> Piece -> Position -> List Position
-calculatePossibleMoves pieces checkKingMoves piece position =
+calculatePossibleMoves : BoardState -> Bool -> Piece -> Position -> List Position
+calculatePossibleMoves boardState checkKingMoves piece position =
     let
         allMoves : Color -> MoveCount -> List (Position -> Position) -> List Position
         allMoves color moveCount moveFns =
             List.foldl
-                (\moveFn acc -> calculateMovesFromPosition pieces position color moveCount moveFn ++ acc)
+                (\moveFn acc -> calculateMovesFromPosition boardState position color moveCount moveFn ++ acc)
                 []
                 moveFns
     in
@@ -331,7 +307,7 @@ calculatePossibleMoves pieces checkKingMoves piece position =
                         Black ->
                             (-)
             in
-            calculatePawnMoves pieces color direction position piece
+            calculatePawnMoves boardState color direction position piece
 
         Rook color _ ->
             allMoves
@@ -377,35 +353,35 @@ calculatePossibleMoves pieces checkKingMoves piece position =
             if checkKingMoves then
                 moves
                     |> List.map (Move king position)
-                    |> List.filter (isMoveSafe pieces color)
+                    |> List.filter (isMoveSafe boardState color)
                     |> List.map .to
 
             else
                 moves
 
 
-isMoveSafe : PiecesDict -> Color -> Move -> Bool
-isMoveSafe pieces color move =
+isMoveSafe : BoardState -> Color -> Move -> Bool
+isMoveSafe boardState color move =
     not <|
         List.member
             move.to
-            (calculateAllMovesForColor (doMove pieces move) (otherColor color))
+            (calculateAllMovesForColor (doMove boardState move) (otherColor color))
 
 
-calculateAllMovesForColor : PiecesDict -> Color -> List Position
-calculateAllMovesForColor pieces color =
+calculateAllMovesForColor : BoardState -> Color -> List Position
+calculateAllMovesForColor boardState color =
     let
-        maybePair : String -> Maybe ( Position, Piece )
+        maybePair : Position -> Maybe ( Position, Piece )
         maybePair key =
-            Dict.get key pieces |> Maybe.map (Tuple.pair (positionFromIndex key))
+            Dict.get key boardState |> Maybe.map (Tuple.pair key)
     in
-    Dict.keys pieces
+    Dict.keys boardState
         |> List.filterMap maybePair
         |> List.filter (Tuple.second >> getColor >> (/=) color)
         |> List.concatMap
             (\tuple ->
                 calculatePossibleMoves
-                    pieces
+                    boardState
                     False
                     (Tuple.second tuple)
                     (Tuple.first tuple)
@@ -430,8 +406,8 @@ straightMoves =
     ]
 
 
-calculateMovesFromPosition : PiecesDict -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position
-calculateMovesFromPosition pieces startPosition playerColor moveCount tryMove =
+calculateMovesFromPosition : BoardState -> Position -> Color -> MoveCount -> (Position -> Position) -> List Position
+calculateMovesFromPosition boardState startPosition playerColor moveCount tryMove =
     let
         move : List Position -> Position -> List Position
         move acc from =
@@ -442,7 +418,7 @@ calculateMovesFromPosition pieces startPosition playerColor moveCount tryMove =
 
                 inhabitant : Maybe Piece
                 inhabitant =
-                    Dict.get (positionToIndex to) pieces
+                    Dict.get to boardState
             in
             if isPositionOnBoard to then
                 case inhabitant of
@@ -474,8 +450,8 @@ isPositionOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-calculatePawnMoves : PiecesDict -> Color -> (Int -> Int -> Int) -> Position -> Piece -> List Position
-calculatePawnMoves pieces playerColor direction ( row, col ) piece =
+calculatePawnMoves : BoardState -> Color -> (Int -> Int -> Int) -> Position -> Piece -> List Position
+calculatePawnMoves boardState playerColor direction ( row, col ) piece =
     let
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =
@@ -487,7 +463,7 @@ calculatePawnMoves pieces playerColor direction ( row, col ) piece =
                 moveOne : Maybe ( Int, Int )
                 moveOne =
                     -- Pawns cannot destroy another unit on a regular move straight forward
-                    if Dict.get (positionToIndex oneForward) pieces == Nothing then
+                    if Dict.get oneForward boardState == Nothing then
                         Just oneForward
 
                     else
@@ -505,7 +481,7 @@ calculatePawnMoves pieces playerColor direction ( row, col ) piece =
             let
                 maybeDestroyMove : Position -> Maybe Position
                 maybeDestroyMove move =
-                    Dict.get (positionToIndex move) pieces
+                    Dict.get move boardState
                         |> maybeWhen (getColor >> (/=) playerColor)
                         |> Maybe.map (\_ -> move)
             in
@@ -576,7 +552,7 @@ viewCell model rowIndex colIndex =
 
         maybePiece : Maybe Piece
         maybePiece =
-            Dict.get (positionToIndex ( rowIndex, colIndex )) model.pieces
+            Dict.get ( rowIndex, colIndex ) model.board
 
         isMove : Bool
         isMove =

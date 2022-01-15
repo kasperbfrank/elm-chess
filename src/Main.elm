@@ -36,6 +36,7 @@ type alias PieceDetails =
 
 type alias Model =
     { board : BoardState
+    , history : List Move
     , selection : Maybe Selection
     , possibleMoves : List Square
     , turn : Color
@@ -160,6 +161,7 @@ initBoardState =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { board = initBoardState
+      , history = []
       , selection = Nothing
       , possibleMoves = []
       , turn = White
@@ -219,6 +221,7 @@ update msg model =
             in
             ( { model
                 | board = newBoardState
+                , history = move :: model.history
                 , possibleMoves = []
                 , selection = Nothing
                 , turn = otherColor model.turn

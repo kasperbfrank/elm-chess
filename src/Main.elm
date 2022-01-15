@@ -30,13 +30,13 @@ type MoveRestriction
 type alias PieceDetails =
     { piece : Piece
     , color : Color
-    , moveCount : Int
+    , startSquare : Square
     }
 
 
 type alias Model =
     { board : BoardState
-    , history : List Move
+    , moveHistory : List Move
     , selection : Maybe Selection
     , possibleMoves : List Square
     , turn : Color
@@ -72,63 +72,63 @@ createPieceFromInitSquare ( row, col ) =
         1 ->
             case col of
                 1 ->
-                    Just (PieceDetails Rook White 0)
+                    Just (PieceDetails Rook White ( row, col ))
 
                 2 ->
-                    Just (PieceDetails Knight White 0)
+                    Just (PieceDetails Knight White ( row, col ))
 
                 3 ->
-                    Just (PieceDetails Bishop White 0)
+                    Just (PieceDetails Bishop White ( row, col ))
 
                 4 ->
-                    Just (PieceDetails Queen White 0)
+                    Just (PieceDetails Queen White ( row, col ))
 
                 5 ->
-                    Just (PieceDetails King White 0)
+                    Just (PieceDetails King White ( row, col ))
 
                 6 ->
-                    Just (PieceDetails Bishop White 0)
+                    Just (PieceDetails Bishop White ( row, col ))
 
                 7 ->
-                    Just (PieceDetails Knight White 0)
+                    Just (PieceDetails Knight White ( row, col ))
 
                 8 ->
-                    Just (PieceDetails Rook White 0)
+                    Just (PieceDetails Rook White ( row, col ))
 
                 _ ->
                     Nothing
 
         2 ->
-            Just (PieceDetails Pawn White 0)
+            Just (PieceDetails Pawn White ( row, col ))
 
         7 ->
-            Just (PieceDetails Pawn Black 0)
+            Just (PieceDetails Pawn Black ( row, col ))
 
         8 ->
             case col of
                 1 ->
-                    Just (PieceDetails Rook Black 0)
+                    Just (PieceDetails Rook Black ( row, col ))
 
                 2 ->
-                    Just (PieceDetails Knight Black 0)
+                    Just (PieceDetails Knight Black ( row, col ))
 
                 3 ->
-                    Just (PieceDetails Bishop Black 0)
+                    Just (PieceDetails Bishop Black ( row, col ))
 
                 4 ->
-                    Just (PieceDetails King Black 0)
+                    Just (PieceDetails King Black ( row, col ))
 
                 5 ->
-                    Just (PieceDetails Queen Black 0)
+                    Just (PieceDetails Queen Black ( row, col ))
 
                 6 ->
-                    Just (PieceDetails Bishop Black 0)
+                    Just (PieceDetails Bishop Black ( row, col ))
 
                 7 ->
-                    Just (PieceDetails Knight Black 0)
+                    Just (PieceDetails Knight Black ( row, col ))
 
                 8 ->
-                    Just (PieceDetails Rook Black 0)
+                    Just (PieceDetails Rook Black ( row, col ))
 
                 _ ->
                     Nothing
@@ -161,7 +161,7 @@ initBoardState =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { board = initBoardState
-      , history = []
+      , moveHistory = []
       , selection = Nothing
       , possibleMoves = []
       , turn = White
@@ -188,7 +188,7 @@ update msg model =
 
                     else
                         ( Just (Selection piece square)
-                        , calculatePossibleMoves model.board True piece square
+                        , calculatePossibleMoves model.board model.moveHistory True piece square
                         )
             in
             ( { model
@@ -221,7 +221,7 @@ update msg model =
             in
             ( { model
                 | board = newBoardState
-                , history = move :: model.history
+                , moveHistory = move :: model.moveHistory
                 , possibleMoves = []
                 , selection = Nothing
                 , turn = otherColor model.turn
@@ -238,7 +238,7 @@ doMove : BoardState -> Move -> BoardState
 doMove boardState { pieceDetails, from, to } =
     boardState
         |> Dict.remove from
-        |> Dict.insert to { pieceDetails | moveCount = pieceDetails.moveCount + 1 }
+        |> Dict.insert to pieceDetails
 
 
 otherColor : Color -> Color
@@ -251,8 +251,8 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : BoardState -> Bool -> PieceDetails -> Square -> List Square
-calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as pieceDetails) square =
+calculatePossibleMoves : BoardState -> List Move -> Bool -> PieceDetails -> Square -> List Square
+calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } as pieceDetails) square =
     let
         allMoves : MoveRestriction -> List (Square -> Square) -> List Square
         allMoves moveRestriction moveFns =
@@ -273,7 +273,7 @@ calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as
                         Black ->
                             (-)
             in
-            calculatePawnMoves boardState color direction square pieceDetails
+            calculatePawnMoves boardState moveHistory color direction square pieceDetails
 
         Rook ->
             allMoves
@@ -314,23 +314,23 @@ calculatePossibleMoves boardState checkKingMoves ({ piece, color, moveCount } as
             if checkKingMoves then
                 moves
                     |> List.map (Move pieceDetails square)
-                    |> List.filter (isMoveSafe boardState color)
+                    |> List.filter (isMoveSafe boardState moveHistory color)
                     |> List.map .to
 
             else
                 moves
 
 
-isMoveSafe : BoardState -> Color -> Move -> Bool
-isMoveSafe boardState color move =
+isMoveSafe : BoardState -> List Move -> Color -> Move -> Bool
+isMoveSafe boardState moveHistory color move =
     not <|
         List.member
             move.to
-            (calculateAllMovesForColor (doMove boardState move) (otherColor color))
+            (calculateAllMovesForColor (doMove boardState move) moveHistory (otherColor color))
 
 
-calculateAllMovesForColor : BoardState -> Color -> List Square
-calculateAllMovesForColor boardState color =
+calculateAllMovesForColor : BoardState -> List Move -> Color -> List Square
+calculateAllMovesForColor boardState moveHistory color =
     let
         maybePair : Square -> Maybe ( Square, PieceDetails )
         maybePair key =
@@ -343,6 +343,7 @@ calculateAllMovesForColor boardState color =
             (\tuple ->
                 calculatePossibleMoves
                     boardState
+                    moveHistory
                     False
                     (Tuple.second tuple)
                     (Tuple.first tuple)
@@ -411,8 +412,13 @@ isSquareOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-calculatePawnMoves : BoardState -> Color -> (Int -> Int -> Int) -> Square -> PieceDetails -> List Square
-calculatePawnMoves boardState playerColor direction ( row, col ) { moveCount } =
+hasMoved : List Move -> PieceDetails -> Bool
+hasMoved moveHistory piece =
+    List.any (.pieceDetails >> (==) piece) moveHistory
+
+
+calculatePawnMoves : BoardState -> List Move -> Color -> (Int -> Int -> Int) -> Square -> PieceDetails -> List Square
+calculatePawnMoves boardState moveHistory playerColor direction ( row, col ) piece =
     let
         baseMoves : List (Maybe ( Int, Int ))
         baseMoves =
@@ -430,7 +436,7 @@ calculatePawnMoves boardState playerColor direction ( row, col ) { moveCount } =
                     else
                         Nothing
             in
-            if moveCount == 0 && moveOne /= Nothing then
+            if not (hasMoved moveHistory piece) && moveOne /= Nothing then
                 [ Just ( direction row 2, col ), moveOne ]
 
             else

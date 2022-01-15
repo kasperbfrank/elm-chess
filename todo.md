@@ -11,9 +11,9 @@ describing distance of a single move a piece, i.e. Horsie would be
 - [x] Implement victory state + play again
 - [x] Make it more visible when a move destroys enemy unit
 - [ ] Implement [en passant rule](https://www.chess.com/terms/en-passant)
-  - Make move history (this also eliminates the need for moveCount)
-  - Add id to PieceDetails
-  - Check if last move was move that allows for en passant
+  - [x] Make move history (this also eliminates the need for moveCount)
+  - [x] Add startSquare to PieceDetails
+  - [ ] Check if last move was move that allows for en passant
 
 ## Ideas
 - [ ] Hover effects for moves
@@ -28,4 +28,7 @@ describing distance of a single move a piece, i.e. Horsie would be
 - [ ] Play against others, using websockets and server
 - [ ] Lobby with games
 - [ ] Practice mode where you can just play both sides yourself
+  - [ ] And can undo in move history
+  - [ ] "Time travel" to move back in move history
 - [ ] Skins for pieces
+- [ ] Logging of games to Humio

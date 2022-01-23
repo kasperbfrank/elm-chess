@@ -390,15 +390,15 @@ calculatePossibleMoves boardState moveStack checkKingMoves ({ type_, color } as 
                                             Black ->
                                                 8
 
-                                    noPiecesInPath : Bool
-                                    noPiecesInPath =
+                                    noPiecesBetween : Bool
+                                    noPiecesBetween =
                                         List.range (min kingCol rookCol + 1) (max kingCol rookCol - 1)
                                             |> List.map (Tuple.pair row_)
                                             |> List.filterMap (\square_ -> Dict.get square_ boardState)
                                             |> List.length
                                             |> (==) 0
                                 in
-                                if noPiecesInPath then
+                                if noPiecesBetween then
                                     Just
                                         (CastlingMove
                                             { kingMove = MoveDetails piece square kingDestination

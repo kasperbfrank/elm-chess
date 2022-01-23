@@ -8,7 +8,7 @@ import Html.Attributes as Attr
 import Html.Events as Events exposing (onClick)
 
 
-type Piece
+type PieceType
     = Pawn
     | Rook
     | Knight
@@ -27,8 +27,13 @@ type MoveRestriction
     | UnlimitedMoves
 
 
-type alias PieceDetails =
-    { piece : Piece
+type CastlingDirection
+    = Kingside
+    | Queenside
+
+
+type alias Piece =
+    { type_ : PieceType
     , color : Color
     , startSquare : Square
     }
@@ -36,7 +41,7 @@ type alias PieceDetails =
 
 type alias Model =
     { board : BoardState
-    , moveHistory : List Move
+    , moveStack : List Move
     , selection : Maybe Selection
     , possibleMoves : List Move
     , turn : Color
@@ -45,95 +50,96 @@ type alias Model =
 
 
 type alias BoardState =
-    Dict Square PieceDetails
+    Dict Square Piece
 
 
 type Msg
-    = ClickedFieldWithPiece PieceDetails Square
+    = ClickedFieldWithPiece Piece Square
     | ClickedFieldWithMove Move
     | ClickedPlayAgainButton
 
 
 type alias Selection =
-    { piece : PieceDetails, square : Square }
+    { piece : Piece, square : Square }
 
 
-type alias Move =
-    { type_ : MoveType, pieceDetails : PieceDetails, from : Square, to : Square }
+type Move
+    = RegularMove MoveDetails
+    | EnPassantMove { moveDetails : MoveDetails, squareToClear : Square }
+    | CastlingMove { kingMove : MoveDetails, rookMove : MoveDetails }
 
 
-type MoveType
-    = RegularMove
-    | EnPassantMove
+type alias MoveDetails =
+    { piece : Piece, from : Square, to : Square }
 
 
 type alias Square =
     ( Int, Int )
 
 
-createPieceFromInitSquare : Square -> Maybe PieceDetails
+createPieceFromInitSquare : Square -> Maybe Piece
 createPieceFromInitSquare ( row, col ) =
     case row of
         1 ->
             case col of
                 1 ->
-                    Just (PieceDetails Rook White ( row, col ))
+                    Just (Piece Rook White ( row, col ))
 
                 2 ->
-                    Just (PieceDetails Knight White ( row, col ))
+                    Just (Piece Knight White ( row, col ))
 
                 3 ->
-                    Just (PieceDetails Bishop White ( row, col ))
+                    Just (Piece Bishop White ( row, col ))
 
                 4 ->
-                    Just (PieceDetails Queen White ( row, col ))
+                    Just (Piece Queen White ( row, col ))
 
                 5 ->
-                    Just (PieceDetails King White ( row, col ))
+                    Just (Piece King White ( row, col ))
 
                 6 ->
-                    Just (PieceDetails Bishop White ( row, col ))
+                    Just (Piece Bishop White ( row, col ))
 
                 7 ->
-                    Just (PieceDetails Knight White ( row, col ))
+                    Just (Piece Knight White ( row, col ))
 
                 8 ->
-                    Just (PieceDetails Rook White ( row, col ))
+                    Just (Piece Rook White ( row, col ))
 
                 _ ->
                     Nothing
 
         2 ->
-            Just (PieceDetails Pawn White ( row, col ))
+            Just (Piece Pawn White ( row, col ))
 
         7 ->
-            Just (PieceDetails Pawn Black ( row, col ))
+            Just (Piece Pawn Black ( row, col ))
 
         8 ->
             case col of
                 1 ->
-                    Just (PieceDetails Rook Black ( row, col ))
+                    Just (Piece Rook Black ( row, col ))
 
                 2 ->
-                    Just (PieceDetails Knight Black ( row, col ))
+                    Just (Piece Knight Black ( row, col ))
 
                 3 ->
-                    Just (PieceDetails Bishop Black ( row, col ))
+                    Just (Piece Bishop Black ( row, col ))
 
                 4 ->
-                    Just (PieceDetails King Black ( row, col ))
+                    Just (Piece King Black ( row, col ))
 
                 5 ->
-                    Just (PieceDetails Queen Black ( row, col ))
+                    Just (Piece Queen Black ( row, col ))
 
                 6 ->
-                    Just (PieceDetails Bishop Black ( row, col ))
+                    Just (Piece Bishop Black ( row, col ))
 
                 7 ->
-                    Just (PieceDetails Knight Black ( row, col ))
+                    Just (Piece Knight Black ( row, col ))
 
                 8 ->
-                    Just (PieceDetails Rook Black ( row, col ))
+                    Just (Piece Rook Black ( row, col ))
 
                 _ ->
                     Nothing
@@ -142,10 +148,10 @@ createPieceFromInitSquare ( row, col ) =
             Nothing
 
 
-createPieceWithIndexTuple : Square -> Maybe ( Square, PieceDetails )
+createPieceWithIndexTuple : Square -> Maybe ( Square, Piece )
 createPieceWithIndexTuple square =
     let
-        maybePiece : Maybe PieceDetails
+        maybePiece : Maybe Piece
         maybePiece =
             createPieceFromInitSquare square
     in
@@ -166,7 +172,7 @@ initBoardState =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { board = initBoardState
-      , moveHistory = []
+      , moveStack = []
       , selection = Nothing
       , possibleMoves = []
       , turn = White
@@ -193,7 +199,7 @@ update msg model =
 
                     else
                         ( Just (Selection piece square)
-                        , calculatePossibleMoves model.board model.moveHistory True piece square
+                        , calculatePossibleMoves model.board model.moveStack True piece square
                         )
             in
             ( { model
@@ -205,34 +211,28 @@ update msg model =
 
         ClickedFieldWithMove move ->
             let
-                boardStateAfterMove : BoardState
-                boardStateAfterMove =
-                    doMove model.board move
-
                 newBoardState : BoardState
                 newBoardState =
-                    case move.type_ of
-                        RegularMove ->
-                            boardStateAfterMove
+                    case move of
+                        RegularMove moveDetails ->
+                            doMove moveDetails model.board
 
-                        EnPassantMove ->
-                            case List.head model.moveHistory of
-                                Just { to } ->
-                                    Dict.remove to boardStateAfterMove
+                        EnPassantMove { moveDetails, squareToClear } ->
+                            doMove moveDetails model.board |> Dict.remove squareToClear
 
-                                Nothing ->
-                                    boardStateAfterMove
+                        CastlingMove { kingMove, rookMove } ->
+                            doMove kingMove model.board |> doMove rookMove
 
-                isOtherKing : PieceDetails -> Bool
-                isOtherKing { piece, color } =
-                    case piece of
+                isOtherKing : Piece -> Bool
+                isOtherKing { type_, color } =
+                    case type_ of
                         King ->
                             color == otherColor model.turn
 
                         _ ->
                             False
 
-                enemyKing : Maybe PieceDetails
+                enemyKing : Maybe Piece
                 enemyKing =
                     Dict.values newBoardState
                         |> List.filter isOtherKing
@@ -240,7 +240,7 @@ update msg model =
             in
             ( { model
                 | board = newBoardState
-                , moveHistory = move :: model.moveHistory
+                , moveStack = move :: model.moveStack
                 , possibleMoves = []
                 , selection = Nothing
                 , turn = otherColor model.turn
@@ -253,11 +253,11 @@ update msg model =
             init ()
 
 
-doMove : BoardState -> Move -> BoardState
-doMove boardState { pieceDetails, from, to } =
+doMove : MoveDetails -> BoardState -> BoardState
+doMove { piece, from, to } boardState =
     boardState
         |> Dict.remove from
-        |> Dict.insert to pieceDetails
+        |> Dict.insert to piece
 
 
 otherColor : Color -> Color
@@ -270,8 +270,8 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : BoardState -> List Move -> Bool -> PieceDetails -> Square -> List Move
-calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } as pieceDetails) square =
+calculatePossibleMoves : BoardState -> List Move -> Bool -> Piece -> Square -> List Move
+calculatePossibleMoves boardState moveStack checkKingMoves ({ type_, color } as piece) (( row, col ) as square) =
     let
         regularMoves : MoveRestriction -> List (Square -> Square) -> List Move
         regularMoves moveRestriction moveFns =
@@ -279,9 +279,9 @@ calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } a
                 (\moveFn acc -> calculateMoveDestinationsFromSquare boardState square color moveRestriction moveFn ++ acc)
                 []
                 moveFns
-                |> List.map (Move RegularMove pieceDetails square)
+                |> List.map (MoveDetails piece square >> RegularMove)
     in
-    case piece of
+    case type_ of
         Pawn ->
             let
                 direction : Int -> Int -> Int
@@ -293,7 +293,7 @@ calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } a
                         Black ->
                             (-)
             in
-            calculatePawnMoves boardState moveHistory color direction square pieceDetails
+            calculatePawnMoves boardState moveStack color direction square piece
 
         Rook ->
             regularMoves
@@ -303,14 +303,14 @@ calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } a
         Knight ->
             regularMoves
                 SingleMove
-                [ \( row, col ) -> ( row + 2, col + 1 )
-                , \( row, col ) -> ( row + 1, col + 2 )
-                , \( row, col ) -> ( row - 1, col + 2 )
-                , \( row, col ) -> ( row - 2, col + 1 )
-                , \( row, col ) -> ( row - 2, col - 1 )
-                , \( row, col ) -> ( row - 1, col - 2 )
-                , \( row, col ) -> ( row + 1, col - 2 )
-                , \( row, col ) -> ( row + 2, col - 1 )
+                [ \( row_, col_ ) -> ( row_ + 2, col_ + 1 )
+                , \( row_, col_ ) -> ( row_ + 1, col_ + 2 )
+                , \( row_, col_ ) -> ( row_ - 1, col_ + 2 )
+                , \( row_, col_ ) -> ( row_ - 2, col_ + 1 )
+                , \( row_, col_ ) -> ( row_ - 2, col_ - 1 )
+                , \( row_, col_ ) -> ( row_ - 1, col_ - 2 )
+                , \( row_, col_ ) -> ( row_ + 1, col_ - 2 )
+                , \( row_, col_ ) -> ( row_ + 2, col_ - 1 )
                 ]
 
         Bishop ->
@@ -325,42 +325,152 @@ calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } a
 
         King ->
             let
+                castling : CastlingDirection -> Maybe Move
+                castling direction =
+                    let
+                        rookToMove : Maybe Piece
+                        rookToMove =
+                            case ( color, direction ) of
+                                ( White, Kingside ) ->
+                                    Dict.get ( 1, 8 ) boardState
+
+                                ( White, Queenside ) ->
+                                    Dict.get ( 1, 1 ) boardState
+
+                                ( Black, Kingside ) ->
+                                    Dict.get ( 8, 1 ) boardState
+
+                                ( Black, Queenside ) ->
+                                    Dict.get ( 8, 8 ) boardState
+
+                        horizontalSquareFromKing : Int -> Square
+                        horizontalSquareFromKing n =
+                            case ( color, direction ) of
+                                ( White, Kingside ) ->
+                                    ( row, col + n )
+
+                                ( White, Queenside ) ->
+                                    ( row, col - n )
+
+                                ( Black, Kingside ) ->
+                                    ( row, col - n )
+
+                                ( Black, Queenside ) ->
+                                    ( row, col + n )
+
+                        kingDestination : Square
+                        kingDestination =
+                            horizontalSquareFromKing 2
+
+                        rookDestination : Square
+                        rookDestination =
+                            horizontalSquareFromKing 1
+                    in
+                    case rookToMove of
+                        Just rook ->
+                            if
+                                hasMovedTimes 0 moveStack piece
+                                    && hasMovedTimes 0 moveStack rook
+                            then
+                                let
+                                    kingCol : Int
+                                    kingCol =
+                                        Tuple.second piece.startSquare
+
+                                    rookCol : Int
+                                    rookCol =
+                                        Tuple.second rook.startSquare
+
+                                    row_ : Int
+                                    row_ =
+                                        case color of
+                                            White ->
+                                                1
+
+                                            Black ->
+                                                8
+
+                                    noPiecesInPath : Bool
+                                    noPiecesInPath =
+                                        List.range (min kingCol rookCol + 1) (max kingCol rookCol - 1)
+                                            |> List.map (Tuple.pair row_)
+                                            |> List.filterMap (\square_ -> Dict.get square_ boardState)
+                                            |> List.length
+                                            |> (==) 0
+                                in
+                                if noPiecesInPath then
+                                    Just
+                                        (CastlingMove
+                                            { kingMove = MoveDetails piece square kingDestination
+                                            , rookMove = MoveDetails rook rook.startSquare rookDestination
+                                            }
+                                        )
+
+                                else
+                                    Nothing
+
+                            else
+                                Nothing
+
+                        Nothing ->
+                            Nothing
+
                 moves : List Move
                 moves =
                     regularMoves
                         SingleMove
                         (straightMoves ++ diagonalMoves)
+                        ++ List.filterMap identity [ castling Kingside, castling Queenside ]
             in
             if checkKingMoves then
-                List.filter (isMoveSafe boardState moveHistory color) moves
+                List.filter (isMoveSafe boardState moveStack color) moves
 
             else
                 moves
 
 
 isMoveSafe : BoardState -> List Move -> Color -> Move -> Bool
-isMoveSafe boardState moveHistory color move =
-    not <|
-        List.member
-            move
-            (calculateAllMovesForColor (doMove boardState move) moveHistory (otherColor color))
+isMoveSafe boardState moveStack color move =
+    let
+        dangerousMove moveDetails =
+            List.member
+                move
+                (calculateAllMovesForColor
+                    (doMove moveDetails boardState)
+                    moveStack
+                    (otherColor color)
+                )
+    in
+    case move of
+        RegularMove moveDetails ->
+            not (dangerousMove moveDetails)
+
+        EnPassantMove { moveDetails } ->
+            not (dangerousMove moveDetails)
+
+        CastlingMove { kingMove, rookMove } ->
+            -- check if King is in check
+            not (dangerousMove (MoveDetails kingMove.piece kingMove.from kingMove.from))
+                -- check if any squares king will pass through are being attacked
+                && not (dangerousMove kingMove)
+                && not (dangerousMove rookMove)
 
 
 calculateAllMovesForColor : BoardState -> List Move -> Color -> List Move
-calculateAllMovesForColor boardState moveHistory color =
+calculateAllMovesForColor boardState moveStack color =
     let
-        maybePair : Square -> Maybe ( Square, PieceDetails )
+        maybePair : Square -> Maybe ( Square, Piece )
         maybePair key =
             Dict.get key boardState |> Maybe.map (Tuple.pair key)
     in
     Dict.keys boardState
         |> List.filterMap maybePair
-        |> List.filter (Tuple.second >> .color >> (/=) color)
+        |> List.filter (Tuple.second >> .color >> (==) color)
         |> List.concatMap
             (\tuple ->
                 calculatePossibleMoves
                     boardState
-                    moveHistory
+                    moveStack
                     False
                     (Tuple.second tuple)
                     (Tuple.first tuple)
@@ -395,7 +505,7 @@ calculateMoveDestinationsFromSquare boardState fromSquare playerColor moveRestri
                 to =
                     tryMove from
 
-                inhabitant : Maybe PieceDetails
+                inhabitant : Maybe Piece
                 inhabitant =
                     Dict.get to boardState
             in
@@ -429,23 +539,38 @@ isSquareOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-hasMovedTimes : Int -> List Move -> PieceDetails -> Bool
-hasMovedTimes times moveHistory piece =
-    List.length (List.filter (.pieceDetails >> (==) piece) moveHistory) == times
+hasMovedTimes : Int -> List Move -> Piece -> Bool
+hasMovedTimes times moveStack piece_ =
+    let
+        pieces : Move -> List Piece
+        pieces move =
+            case move of
+                RegularMove { piece } ->
+                    [ piece ]
+
+                EnPassantMove { moveDetails } ->
+                    [ moveDetails.piece ]
+
+                CastlingMove { kingMove, rookMove } ->
+                    [ kingMove.piece, rookMove.piece ]
+    in
+    List.concatMap pieces moveStack
+        |> List.filter ((==) piece_)
+        |> List.length
+        |> (==) times
 
 
-calculatePawnMoves : BoardState -> List Move -> Color -> (Int -> Int -> Int) -> Square -> PieceDetails -> List Move
-calculatePawnMoves boardState moveHistory playerColor advanceDirection (( row, col ) as currentSquare) pieceDetails =
+calculatePawnMoves : BoardState -> List Move -> Color -> (Int -> Int -> Int) -> Square -> Piece -> List Move
+calculatePawnMoves boardState moveStack playerColor advanceDirection (( row, col ) as currentSquare) piece =
     let
         advanceOne : Square -> Square
         advanceOne ( row_, col_ ) =
             ( advanceDirection row_ 1, col_ )
 
-        move : MoveType -> Square -> Maybe Move
-        move moveType destination =
+        moveDetails : Square -> Maybe MoveDetails
+        moveDetails destination =
             Just
-                { type_ = moveType
-                , pieceDetails = pieceDetails
+                { piece = piece
                 , from = currentSquare
                 , to = destination
                 }
@@ -457,13 +582,13 @@ calculatePawnMoves boardState moveHistory playerColor advanceDirection (( row, c
                 moveOne =
                     -- Pawns cannot destroy another unit on a regular move straight forward
                     if Dict.get (advanceOne currentSquare) boardState == Nothing then
-                        move RegularMove (advanceOne currentSquare)
+                        Maybe.map RegularMove (moveDetails (advanceOne currentSquare))
 
                     else
                         Nothing
             in
-            if hasMovedTimes 0 moveHistory pieceDetails && moveOne /= Nothing then
-                [ move RegularMove ( advanceDirection row 2, col ), moveOne ]
+            if hasMovedTimes 0 moveStack piece && moveOne /= Nothing then
+                [ Maybe.map RegularMove (moveDetails ( advanceDirection row 2, col )), moveOne ]
 
             else
                 [ moveOne ]
@@ -482,11 +607,12 @@ calculatePawnMoves boardState moveHistory playerColor advanceDirection (( row, c
                         |> maybeWhen (.color >> (/=) playerColor)
                         |> Maybe.map
                             (always
-                                { type_ = RegularMove
-                                , pieceDetails = pieceDetails
-                                , from = currentSquare
-                                , to = destination
-                                }
+                                (RegularMove
+                                    { piece = piece
+                                    , from = currentSquare
+                                    , to = destination
+                                    }
+                                )
                             )
 
                 -- En passant requirements
@@ -498,30 +624,34 @@ calculatePawnMoves boardState moveHistory playerColor advanceDirection (( row, c
                     let
                         previousMove : Maybe Move
                         previousMove =
-                            List.head moveHistory
+                            List.head moveStack
                     in
                     case previousMove of
-                        Just move_ ->
+                        Just (RegularMove moveDetails_) ->
                             if
-                                (pieceDetails.startSquare |> advanceOne |> advanceOne |> advanceOne)
+                                (piece.startSquare |> advanceOne |> advanceOne |> advanceOne)
                                     == currentSquare
-                                    && move_.pieceDetails.piece
+                                    && moveDetails_.piece.type_
                                     == Pawn
-                                    && hasMovedTimes 1 moveHistory move_.pieceDetails
-                                    && move_.to
+                                    && hasMovedTimes 1 moveStack moveDetails_.piece
+                                    && moveDetails_.to
                                     == ( row, horizontalDirection col 1 )
                             then
                                 Just
-                                    { type_ = EnPassantMove
-                                    , pieceDetails = pieceDetails
-                                    , from = currentSquare
-                                    , to = ( advanceDirection row 1, horizontalDirection col 1 )
-                                    }
+                                    (EnPassantMove
+                                        { moveDetails =
+                                            { piece = piece
+                                            , from = currentSquare
+                                            , to = ( advanceDirection row 1, horizontalDirection col 1 )
+                                            }
+                                        , squareToClear = moveDetails_.to
+                                        }
+                                    )
 
                             else
                                 Nothing
 
-                        Nothing ->
+                        _ ->
                             Nothing
             in
             [ maybeDestroyMove (-)
@@ -576,11 +706,11 @@ viewBoard model =
 viewRow : Model -> Int -> Html Msg
 viewRow model rowIndex =
     Html.div [ Attr.class "flex" ]
-        (List.range 1 8 |> List.map (viewCell model rowIndex))
+        (List.range 1 8 |> List.map (Tuple.pair rowIndex >> viewCell model))
 
 
-viewCell : Model -> Int -> Int -> Html Msg
-viewCell model rowIndex colIndex =
+viewCell : Model -> ( Int, Int ) -> Html Msg
+viewCell model (( rowIndex, colIndex ) as square_) =
     let
         cellClass : Attribute msg
         cellClass =
@@ -591,19 +721,31 @@ viewCell model rowIndex colIndex =
                 else
                     "bg-slate-200"
 
-        maybePiece : Maybe PieceDetails
+        maybePiece : Maybe Piece
         maybePiece =
-            Dict.get ( rowIndex, colIndex ) model.board
+            Dict.get square_ model.board
+
+        destinationSquare : Move -> Square
+        destinationSquare move =
+            case move of
+                RegularMove { to } ->
+                    to
+
+                EnPassantMove { moveDetails } ->
+                    moveDetails.to
+
+                CastlingMove { kingMove } ->
+                    kingMove.to
 
         maybeMove : Maybe Move
         maybeMove =
             model.possibleMoves
-                |> List.filter (.to >> (==) ( rowIndex, colIndex ))
+                |> List.filter (destinationSquare >> (==) square_)
                 |> List.head
 
         isSelectedField : Bool
         isSelectedField =
-            Maybe.map .square model.selection == Just ( rowIndex, colIndex )
+            Maybe.map .square model.selection == Just square_
 
         styles : List (Attribute msg)
         styles =
@@ -641,9 +783,9 @@ viewCell model rowIndex colIndex =
 
                 Nothing ->
                     case maybePiece of
-                        Just ({ piece, color } as pieceDetails) ->
+                        Just ({ type_, color } as piece) ->
                             if color == model.turn then
-                                [ onClick (ClickedFieldWithPiece pieceDetails ( rowIndex, colIndex )) ]
+                                [ onClick (ClickedFieldWithPiece piece square_) ]
 
                             else
                                 []
@@ -656,16 +798,16 @@ viewCell model rowIndex colIndex =
         (viewPieceAndMove maybePiece (maybeMove /= Nothing))
 
 
-viewPieceAndMove : Maybe PieceDetails -> Bool -> List (Html msg)
+viewPieceAndMove : Maybe Piece -> Bool -> List (Html msg)
 viewPieceAndMove maybePieceDetails isMove =
     case ( maybePieceDetails, isMove ) of
-        ( Just { piece }, True ) ->
-            [ Html.text (pieceIcon piece)
+        ( Just { type_ }, True ) ->
+            [ Html.text (pieceIcon type_)
             , Html.div [ Attr.class "scale-150 absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
             ]
 
-        ( Just { piece }, False ) ->
-            [ Html.text (pieceIcon piece) ]
+        ( Just { type_ }, False ) ->
+            [ Html.text (pieceIcon type_) ]
 
         ( Nothing, True ) ->
             [ Html.text "o" ]
@@ -674,7 +816,7 @@ viewPieceAndMove maybePieceDetails isMove =
             [ Html.text "" ]
 
 
-pieceIcon : Piece -> String
+pieceIcon : PieceType -> String
 pieceIcon piece =
     case piece of
         Pawn ->

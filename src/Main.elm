@@ -38,7 +38,7 @@ type alias Model =
     { board : BoardState
     , moveHistory : List Move
     , selection : Maybe Selection
-    , possibleMoves : List Square
+    , possibleMoves : List Move
     , turn : Color
     , victory : Maybe Color
     }
@@ -59,7 +59,12 @@ type alias Selection =
 
 
 type alias Move =
-    { pieceDetails : PieceDetails, from : Square, to : Square }
+    { type_ : MoveType, pieceDetails : PieceDetails, from : Square, to : Square }
+
+
+type MoveType
+    = RegularMove
+    | EnPassantMove
 
 
 type alias Square =
@@ -198,11 +203,25 @@ update msg model =
             , Cmd.none
             )
 
-        ClickedFieldWithMove ({ pieceDetails, from, to } as move) ->
+        ClickedFieldWithMove move ->
             let
+                boardStateAfterMove : BoardState
+                boardStateAfterMove =
+                    doMove model.board move
+
                 newBoardState : BoardState
                 newBoardState =
-                    doMove model.board move
+                    case move.type_ of
+                        RegularMove ->
+                            boardStateAfterMove
+
+                        EnPassantMove ->
+                            case List.head model.moveHistory of
+                                Just { to } ->
+                                    Dict.remove to boardStateAfterMove
+
+                                Nothing ->
+                                    boardStateAfterMove
 
                 isOtherKing : PieceDetails -> Bool
                 isOtherKing { piece, color } =
@@ -251,15 +270,16 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : BoardState -> List Move -> Bool -> PieceDetails -> Square -> List Square
+calculatePossibleMoves : BoardState -> List Move -> Bool -> PieceDetails -> Square -> List Move
 calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } as pieceDetails) square =
     let
-        allMoves : MoveRestriction -> List (Square -> Square) -> List Square
-        allMoves moveRestriction moveFns =
+        regularMoves : MoveRestriction -> List (Square -> Square) -> List Move
+        regularMoves moveRestriction moveFns =
             List.foldl
-                (\moveFn acc -> calculateMovesFromSquare boardState square color moveRestriction moveFn ++ acc)
+                (\moveFn acc -> calculateMoveDestinationsFromSquare boardState square color moveRestriction moveFn ++ acc)
                 []
                 moveFns
+                |> List.map (Move RegularMove pieceDetails square)
     in
     case piece of
         Pawn ->
@@ -276,12 +296,12 @@ calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } a
             calculatePawnMoves boardState moveHistory color direction square pieceDetails
 
         Rook ->
-            allMoves
+            regularMoves
                 UnlimitedMoves
                 straightMoves
 
         Knight ->
-            allMoves
+            regularMoves
                 SingleMove
                 [ \( row, col ) -> ( row + 2, col + 1 )
                 , \( row, col ) -> ( row + 1, col + 2 )
@@ -294,28 +314,25 @@ calculatePossibleMoves boardState moveHistory checkKingMoves ({ piece, color } a
                 ]
 
         Bishop ->
-            allMoves
+            regularMoves
                 UnlimitedMoves
                 diagonalMoves
 
         Queen ->
-            allMoves
+            regularMoves
                 UnlimitedMoves
                 (straightMoves ++ diagonalMoves)
 
         King ->
             let
-                moves : List Square
+                moves : List Move
                 moves =
-                    allMoves
+                    regularMoves
                         SingleMove
                         (straightMoves ++ diagonalMoves)
             in
             if checkKingMoves then
-                moves
-                    |> List.map (Move pieceDetails square)
-                    |> List.filter (isMoveSafe boardState moveHistory color)
-                    |> List.map .to
+                List.filter (isMoveSafe boardState moveHistory color) moves
 
             else
                 moves
@@ -325,11 +342,11 @@ isMoveSafe : BoardState -> List Move -> Color -> Move -> Bool
 isMoveSafe boardState moveHistory color move =
     not <|
         List.member
-            move.to
+            move
             (calculateAllMovesForColor (doMove boardState move) moveHistory (otherColor color))
 
 
-calculateAllMovesForColor : BoardState -> List Move -> Color -> List Square
+calculateAllMovesForColor : BoardState -> List Move -> Color -> List Move
 calculateAllMovesForColor boardState moveHistory color =
     let
         maybePair : Square -> Maybe ( Square, PieceDetails )
@@ -368,8 +385,8 @@ straightMoves =
     ]
 
 
-calculateMovesFromSquare : BoardState -> Square -> Color -> MoveRestriction -> (Square -> Square) -> List Square
-calculateMovesFromSquare boardState fromSquare playerColor moveRestriction tryMove =
+calculateMoveDestinationsFromSquare : BoardState -> Square -> Color -> MoveRestriction -> (Square -> Square) -> List Square
+calculateMoveDestinationsFromSquare boardState fromSquare playerColor moveRestriction tryMove =
     let
         move : List Square -> Square -> List Square
         move acc from =
@@ -412,48 +429,105 @@ isSquareOnBoard ( row, col ) =
     0 < row && row < 9 && 0 < col && col < 9
 
 
-hasMoved : List Move -> PieceDetails -> Bool
-hasMoved moveHistory piece =
-    List.any (.pieceDetails >> (==) piece) moveHistory
+hasMovedTimes : Int -> List Move -> PieceDetails -> Bool
+hasMovedTimes times moveHistory piece =
+    List.length (List.filter (.pieceDetails >> (==) piece) moveHistory) == times
 
 
-calculatePawnMoves : BoardState -> List Move -> Color -> (Int -> Int -> Int) -> Square -> PieceDetails -> List Square
-calculatePawnMoves boardState moveHistory playerColor direction ( row, col ) piece =
+calculatePawnMoves : BoardState -> List Move -> Color -> (Int -> Int -> Int) -> Square -> PieceDetails -> List Move
+calculatePawnMoves boardState moveHistory playerColor advanceDirection (( row, col ) as currentSquare) pieceDetails =
     let
-        baseMoves : List (Maybe ( Int, Int ))
+        advanceOne : Square -> Square
+        advanceOne ( row_, col_ ) =
+            ( advanceDirection row_ 1, col_ )
+
+        move : MoveType -> Square -> Maybe Move
+        move moveType destination =
+            Just
+                { type_ = moveType
+                , pieceDetails = pieceDetails
+                , from = currentSquare
+                , to = destination
+                }
+
+        baseMoves : List (Maybe Move)
         baseMoves =
             let
-                oneForward : ( Int, Int )
-                oneForward =
-                    ( direction row 1, col )
-
-                moveOne : Maybe ( Int, Int )
+                moveOne : Maybe Move
                 moveOne =
                     -- Pawns cannot destroy another unit on a regular move straight forward
-                    if Dict.get oneForward boardState == Nothing then
-                        Just oneForward
+                    if Dict.get (advanceOne currentSquare) boardState == Nothing then
+                        move RegularMove (advanceOne currentSquare)
 
                     else
                         Nothing
             in
-            if not (hasMoved moveHistory piece) && moveOne /= Nothing then
-                [ Just ( direction row 2, col ), moveOne ]
+            if hasMovedTimes 0 moveHistory pieceDetails && moveOne /= Nothing then
+                [ move RegularMove ( advanceDirection row 2, col ), moveOne ]
 
             else
                 [ moveOne ]
 
-        destroyMoves : List (Maybe ( Int, Int ))
+        destroyMoves : List (Maybe Move)
         destroyMoves =
             -- Pawn can destroy another unit by moving one forward diagonally
             let
-                maybeDestroyMove : Square -> Maybe Square
-                maybeDestroyMove move =
-                    Dict.get move boardState
+                maybeDestroyMove : (Int -> Int -> Int) -> Maybe Move
+                maybeDestroyMove horizontalDirection =
+                    let
+                        destination =
+                            ( advanceDirection row 1, horizontalDirection col 1 )
+                    in
+                    Dict.get destination boardState
                         |> maybeWhen (.color >> (/=) playerColor)
-                        |> Maybe.map (\_ -> move)
+                        |> Maybe.map
+                            (always
+                                { type_ = RegularMove
+                                , pieceDetails = pieceDetails
+                                , from = currentSquare
+                                , to = destination
+                                }
+                            )
+
+                -- En passant requirements
+                -- 1. The capturing pawn must have advanced exactly three ranks to perform this move.
+                -- 2. The captured pawn must have moved two squares in one move, landing right next to the capturing pawn.
+                -- 3. The en passant capture must be performed on the turn immediately after the pawn being captured moves. If the player does not capture en passant on that turn, they no longer can do it later.
+                maybeEnPassantMove : (Int -> Int -> Int) -> Maybe Move
+                maybeEnPassantMove horizontalDirection =
+                    let
+                        previousMove : Maybe Move
+                        previousMove =
+                            List.head moveHistory
+                    in
+                    case previousMove of
+                        Just move_ ->
+                            if
+                                (pieceDetails.startSquare |> advanceOne |> advanceOne |> advanceOne)
+                                    == currentSquare
+                                    && move_.pieceDetails.piece
+                                    == Pawn
+                                    && hasMovedTimes 1 moveHistory move_.pieceDetails
+                                    && move_.to
+                                    == ( row, horizontalDirection col 1 )
+                            then
+                                Just
+                                    { type_ = EnPassantMove
+                                    , pieceDetails = pieceDetails
+                                    , from = currentSquare
+                                    , to = ( advanceDirection row 1, horizontalDirection col 1 )
+                                    }
+
+                            else
+                                Nothing
+
+                        Nothing ->
+                            Nothing
             in
-            [ maybeDestroyMove ( direction row 1, col - 1 )
-            , maybeDestroyMove ( direction row 1, col + 1 )
+            [ maybeDestroyMove (-)
+            , maybeDestroyMove (+)
+            , maybeEnPassantMove (-)
+            , maybeEnPassantMove (+)
             ]
     in
     List.filterMap identity (baseMoves ++ destroyMoves)
@@ -521,9 +595,11 @@ viewCell model rowIndex colIndex =
         maybePiece =
             Dict.get ( rowIndex, colIndex ) model.board
 
-        isMove : Bool
-        isMove =
-            List.any ((==) ( rowIndex, colIndex )) model.possibleMoves
+        maybeMove : Maybe Move
+        maybeMove =
+            model.possibleMoves
+                |> List.filter (.to >> (==) ( rowIndex, colIndex ))
+                |> List.head
 
         isSelectedField : Bool
         isSelectedField =
@@ -542,40 +618,42 @@ viewCell model rowIndex colIndex =
                             "text-" ++ String.toLower (colorToString color)
 
                         Nothing ->
-                            if isMove then
-                                "text-emerald-400"
+                            case maybeMove of
+                                Just _ ->
+                                    "text-emerald-400"
 
-                            else
-                                ""
+                                Nothing ->
+                                    ""
                 )
             , cellClass
             ]
 
         eventHandlers : List (Attribute Msg)
         eventHandlers =
-            if isMove then
-                case model.selection of
-                    Just { piece, square } ->
-                        [ onClick (ClickedFieldWithMove (Move piece square ( rowIndex, colIndex ))) ]
+            case maybeMove of
+                Just move ->
+                    case model.selection of
+                        Just { piece, square } ->
+                            [ onClick (ClickedFieldWithMove move) ]
 
-                    Nothing ->
-                        []
-
-            else
-                case maybePiece of
-                    Just ({ piece, color } as pieceDetails) ->
-                        if color == model.turn then
-                            [ onClick (ClickedFieldWithPiece pieceDetails ( rowIndex, colIndex )) ]
-
-                        else
+                        Nothing ->
                             []
 
-                    Nothing ->
-                        []
+                Nothing ->
+                    case maybePiece of
+                        Just ({ piece, color } as pieceDetails) ->
+                            if color == model.turn then
+                                [ onClick (ClickedFieldWithPiece pieceDetails ( rowIndex, colIndex )) ]
+
+                            else
+                                []
+
+                        Nothing ->
+                            []
     in
     Html.div
         (styles ++ eventHandlers)
-        (viewPieceAndMove maybePiece isMove)
+        (viewPieceAndMove maybePiece (maybeMove /= Nothing))
 
 
 viewPieceAndMove : Maybe PieceDetails -> Bool -> List (Html msg)

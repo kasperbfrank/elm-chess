@@ -161,9 +161,7 @@ createPieceWithIndexTuple square =
 initBoardState : BoardState
 initBoardState =
     List.range 1 8
-        |> List.map (\n -> ( n, List.range 1 8 ))
-        |> List.concatMap
-            (\( rowIndex, colIndexes ) -> List.map (Tuple.pair rowIndex) colIndexes)
+        |> List.concatMap (\row -> List.map (Tuple.pair row) (List.range 1 8))
         |> List.map createPieceWithIndexTuple
         |> List.filterMap identity
         |> Dict.fromList

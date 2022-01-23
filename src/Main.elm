@@ -274,7 +274,15 @@ calculatePossibleMoves boardState moveStack checkKingMoves ({ type_, color } as 
         regularMoves : MoveRestriction -> List (Square -> Square) -> List Move
         regularMoves moveRestriction moveFns =
             List.foldl
-                (\moveFn acc -> calculateMoveDestinationsFromSquare boardState square color moveRestriction moveFn ++ acc)
+                (\moveFn acc ->
+                    calculateMoveDestinationsFromSquare
+                        boardState
+                        square
+                        color
+                        moveRestriction
+                        moveFn
+                        ++ acc
+                )
                 []
                 moveFns
                 |> List.map (MoveDetails piece square >> RegularMove)

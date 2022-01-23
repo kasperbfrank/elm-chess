@@ -616,7 +616,8 @@ calculatePawnMoves boardState moveStack playerColor advanceDirection (( row, col
                 -- En passant requirements
                 -- 1. The capturing pawn must have advanced exactly three ranks to perform this move.
                 -- 2. The captured pawn must have moved two squares in one move, landing right next to the capturing pawn.
-                -- 3. The en passant capture must be performed on the turn immediately after the pawn being captured moves. If the player does not capture en passant on that turn, they no longer can do it later.
+                -- 3. The en passant capture must be performed on the turn immediately after the pawn being captured moves.
+                --    If the player does not capture en passant on that turn, they no longer can do it later.
                 maybeEnPassantMove : (Int -> Int -> Int) -> Maybe Move
                 maybeEnPassantMove horizontalDirection =
                     let

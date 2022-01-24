@@ -197,7 +197,7 @@ update msg model =
 
                     else
                         ( Just (Selection piece square)
-                        , calculatePossibleMoves model.board model.moveStack True piece square
+                        , calculatePossibleMoves model.board model.moveStack True ( square, piece )
                         )
             in
             ( { model
@@ -268,8 +268,8 @@ otherColor color =
             White
 
 
-calculatePossibleMoves : BoardState -> List Move -> Bool -> Piece -> Square -> List Move
-calculatePossibleMoves boardState moveStack checkKingMoves ({ type_, color } as piece) (( row, col ) as square) =
+calculatePossibleMoves : BoardState -> List Move -> Bool -> ( Square, Piece ) -> List Move
+calculatePossibleMoves boardState moveStack checkKingMoves ( ( row, col ) as square, { type_, color } as piece ) =
     let
         regularMoves : MoveRestriction -> List (Square -> Square) -> List Move
         regularMoves moveRestriction moveFns =
@@ -459,15 +459,7 @@ calculateAllMovesForColor boardState moveStack color =
     Dict.keys boardState
         |> List.filterMap maybePair
         |> List.filter (Tuple.second >> .color >> (==) color)
-        |> List.concatMap
-            (\tuple ->
-                calculatePossibleMoves
-                    boardState
-                    moveStack
-                    False
-                    (Tuple.second tuple)
-                    (Tuple.first tuple)
-            )
+        |> List.concatMap (calculatePossibleMoves boardState moveStack False)
 
 
 diagonalMoves : List (Square -> Square)

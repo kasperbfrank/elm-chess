@@ -632,6 +632,7 @@ calculatePawnMoves boardState moveStack playerColor advanceDirection (( row, col
                 maybeDestroyMove : (Int -> Int -> Int) -> Maybe Move
                 maybeDestroyMove horizontalDirection =
                     let
+                        destination : ( Int, Int )
                         destination =
                             ( advanceDirection row 1, horizontalDirection col 1 )
                     in

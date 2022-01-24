@@ -4,8 +4,8 @@
 Something that takes a `MoveCount` describing how 
 many moves are possible in any given direction, and a `(x, y)`
 describing distance of a single move a piece, i.e. Horsie would be
-`(1, 2)`, Queen would be `(1, 1)`
-- [x] Implement "castling" for King
+`(1, 2)`, Queen would be `(1, 1)
+- [x] Implement [castling](https://www.chess.com/article/view/how-to-castle-in-chess) for King
 - [x] Make sure player cannot put own King in check
 - [x] If pawn reaches other side of the board, make it possible to trade for other piece
 - [x] Implement victory state + play again

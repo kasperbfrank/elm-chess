@@ -379,27 +379,14 @@ calculatePossibleMoves boardState moveStack checkKingMoves ({ type_, color } as 
                                     && hasMovedTimes 0 moveStack rook
                             then
                                 let
-                                    kingCol : Int
-                                    kingCol =
-                                        Tuple.second piece.startSquare
-
                                     rookCol : Int
                                     rookCol =
                                         Tuple.second rook.startSquare
 
-                                    row_ : Int
-                                    row_ =
-                                        case color of
-                                            White ->
-                                                1
-
-                                            Black ->
-                                                8
-
                                     noPiecesBetween : Bool
                                     noPiecesBetween =
-                                        List.range (min kingCol rookCol + 1) (max kingCol rookCol - 1)
-                                            |> List.map (Tuple.pair row_)
+                                        List.range (min col rookCol + 1) (max col rookCol - 1)
+                                            |> List.map (Tuple.pair row)
                                             |> List.filterMap (\square_ -> Dict.get square_ boardState)
                                             |> List.length
                                             |> (==) 0

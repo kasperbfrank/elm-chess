@@ -7,13 +7,16 @@ describing distance of a single move a piece, i.e. Horsie would be
 `(1, 2)`, Queen would be `(1, 1)`
 - [x] Implement "castling" for King
 - [x] Make sure player cannot put own King in check
-- [ ] If pawn reaches other side of the board, make it possible to trade for other piece
+- [x] If pawn reaches other side of the board, make it possible to trade for other piece
 - [x] Implement victory state + play again
 - [x] Make it more visible when a move destroys enemy unit
 - [x] Implement [en passant rule](https://www.chess.com/terms/en-passant)
   - [x] Make move history (this also eliminates the need for moveCount)
   - [x] Add startSquare to PieceDetails
   - [x] Check if last move was move that allows for en passant
+- [ ] TESTS
+  - [ ] Unit tests
+  - [ ] E2E tests
 
 ## Ideas
 - [ ] Hover effects for moves

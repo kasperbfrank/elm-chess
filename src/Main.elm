@@ -875,25 +875,23 @@ viewSquare model (( rowIndex, colIndex ) as square_) =
     in
     Html.div
         (styles ++ eventHandlers)
-        (viewPieceAndMove maybePiece (maybeMove /= Nothing))
+        [ viewPieceAndMove maybePiece (maybeMove /= Nothing) ]
 
 
-viewPieceAndMove : Maybe Piece -> Bool -> List (Html msg)
+viewPieceAndMove : Maybe Piece -> Bool -> Html msg
 viewPieceAndMove maybePieceDetails isMove =
     case ( maybePieceDetails, isMove ) of
         ( Just { type_ }, True ) ->
-            [ Html.text (pieceIcon type_)
-            , Html.div [ Attr.class "scale-150 absolute w-full h-full text-red-500 flex justify-center items-center" ] [ Html.text "X" ]
-            ]
+            Html.div [ Attr.class "absolute w-full h-full bg-red-500 flex justify-center items-center" ] [ Html.text (pieceIcon type_) ]
 
         ( Just { type_ }, False ) ->
-            [ Html.text (pieceIcon type_) ]
+            Html.text (pieceIcon type_)
 
         ( Nothing, True ) ->
-            [ Html.text "o" ]
+            Html.div [ Attr.class "w-5 h-5 bg-slate-500/50 rounded-full" ] []
 
         ( Nothing, False ) ->
-            [ Html.text "" ]
+            Html.text ""
 
 
 pieceIcon : PieceType -> String

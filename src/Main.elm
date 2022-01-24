@@ -458,13 +458,27 @@ calculatePossibleMoves boardState moveStack checkKingMoves ( ( row, col ) as squ
 isMoveSafe : BoardState -> List Move -> Color -> Move -> Bool
 isMoveSafe boardState moveStack color move =
     let
+        moveDestination : Move -> List Square
+        moveDestination move_ =
+            case move_ of
+                RegularMove { to } ->
+                    [ to ]
+
+                EnPassantMove { moveDetails } ->
+                    [ moveDetails.to ]
+
+                CastlingMove { kingMove, rookMove } ->
+                    [ kingMove.to, rookMove.to ]
+
+        dangerousMove : MoveDetails -> Bool
         dangerousMove moveDetails =
             List.member
-                move
+                moveDetails.to
                 (calculateAllMovesForColor
                     (doMove moveDetails boardState)
                     moveStack
                     (otherColor color)
+                    |> List.concatMap moveDestination
                 )
     in
     case move of

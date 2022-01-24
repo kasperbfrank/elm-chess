@@ -46,6 +46,7 @@ type alias Model =
     , possibleMoves : List Move
     , turn : Color
     , victory : Maybe Color
+    , trade : Maybe ( Square, Piece )
     }
 
 
@@ -56,6 +57,7 @@ type alias BoardState =
 type Msg
     = ClickedFieldWithPiece Piece Square
     | ClickedFieldWithMove Move
+    | ClickedTradablePiece Piece Square
     | ClickedPlayAgainButton
 
 
@@ -75,6 +77,16 @@ type alias MoveDetails =
 
 type alias Square =
     ( Int, Int )
+
+
+startRow : Color -> Int
+startRow color =
+    case color of
+        White ->
+            1
+
+        Black ->
+            8
 
 
 createPieceFromInitSquare : Square -> Maybe Piece
@@ -175,6 +187,7 @@ init _ =
       , possibleMoves = []
       , turn = White
       , victory = Nothing
+      , trade = Nothing
       }
     , Cmd.none
     )
@@ -209,17 +222,28 @@ update msg model =
 
         ClickedFieldWithMove move ->
             let
-                newBoardState : BoardState
-                newBoardState =
+                ( boardState, trade, turn ) =
                     case move of
-                        RegularMove moveDetails ->
-                            doMove moveDetails model.board
+                        RegularMove ({ piece, to } as moveDetails) ->
+                            let
+                                boardState_ : BoardState
+                                boardState_ =
+                                    doMove moveDetails model.board
+
+                                ( trade_, turn_ ) =
+                                    if piece.type_ == Pawn && Tuple.first to == startRow (otherColor model.turn) then
+                                        ( Just ( to, piece ), model.turn )
+
+                                    else
+                                        ( Nothing, otherColor model.turn )
+                            in
+                            ( boardState_, trade_, turn_ )
 
                         EnPassantMove { moveDetails, squareToClear } ->
-                            doMove moveDetails model.board |> Dict.remove squareToClear
+                            ( doMove moveDetails model.board |> Dict.remove squareToClear, Nothing, otherColor model.turn )
 
                         CastlingMove { kingMove, rookMove } ->
-                            doMove kingMove model.board |> doMove rookMove
+                            ( doMove kingMove model.board |> doMove rookMove, Nothing, otherColor model.turn )
 
                 isOtherKing : Piece -> Bool
                 isOtherKing { type_, color } =
@@ -232,17 +256,26 @@ update msg model =
 
                 enemyKing : Maybe Piece
                 enemyKing =
-                    Dict.values newBoardState
+                    Dict.values boardState
                         |> List.filter isOtherKing
                         |> List.head
             in
+            ( { board = boardState
+              , moveStack = move :: model.moveStack
+              , possibleMoves = []
+              , selection = Nothing
+              , turn = turn
+              , victory = invertMap model.turn enemyKing
+              , trade = trade
+              }
+            , Cmd.none
+            )
+
+        ClickedTradablePiece piece square ->
             ( { model
-                | board = newBoardState
-                , moveStack = move :: model.moveStack
-                , possibleMoves = []
-                , selection = Nothing
-                , turn = otherColor model.turn
-                , victory = invertMap model.turn enemyKing
+                | turn = otherColor model.turn
+                , board = Dict.insert square piece model.board
+                , trade = Nothing
               }
             , Cmd.none
             )
@@ -663,7 +696,12 @@ view model =
                 viewVictory color
 
             Nothing ->
-                viewBoard model
+                case model.trade of
+                    Just ( square, piece ) ->
+                        viewTrade square piece model.board
+
+                    Nothing ->
+                        viewBoard model
         ]
 
 
@@ -682,6 +720,42 @@ viewVictory color =
         ]
 
 
+viewTrade : Square -> Piece -> BoardState -> Html Msg
+viewTrade square { color } boardState =
+    let
+        remainingPieces : List Piece
+        remainingPieces =
+            Dict.values boardState
+                |> List.filter (.color >> (==) color)
+
+        graveyard : List Piece
+        graveyard =
+            Dict.values initBoardState
+                |> List.filter (.color >> (==) color)
+                |> List.filter (\piece -> not (List.member piece remainingPieces))
+    in
+    Html.div
+        [ Attr.class "flex space-x-1" ]
+        (List.map (viewTradablePiece square) graveyard)
+
+
+viewTradablePiece : Square -> Piece -> Html Msg
+viewTradablePiece square piece =
+    Html.div
+        [ squareBaseStyles
+        , Attr.class <|
+            case piece.color of
+                White ->
+                    "bg-slate-700"
+
+                Black ->
+                    "bg-slate-200"
+        , Attr.class ("text-" ++ String.toLower (colorToString piece.color))
+        , Events.onClick (ClickedTradablePiece piece square)
+        ]
+        [ Html.text (pieceIcon piece.type_) ]
+
+
 viewBoard : Model -> Html Msg
 viewBoard model =
     Html.section
@@ -692,11 +766,16 @@ viewBoard model =
 viewRow : Model -> Int -> Html Msg
 viewRow model rowIndex =
     Html.div [ Attr.class "flex" ]
-        (List.range 1 8 |> List.map (Tuple.pair rowIndex >> viewCell model))
+        (List.range 1 8 |> List.map (Tuple.pair rowIndex >> viewSquare model))
 
 
-viewCell : Model -> ( Int, Int ) -> Html Msg
-viewCell model (( rowIndex, colIndex ) as square_) =
+squareBaseStyles : Attribute msg
+squareBaseStyles =
+    Attr.class "h-20 w-20 flex justify-center items-center text-3xl font-bold relative"
+
+
+viewSquare : Model -> ( Int, Int ) -> Html Msg
+viewSquare model (( rowIndex, colIndex ) as square_) =
     let
         cellClass : Attribute msg
         cellClass =
@@ -735,7 +814,7 @@ viewCell model (( rowIndex, colIndex ) as square_) =
 
         styles : List (Attribute msg)
         styles =
-            [ Attr.class "h-20 w-20 flex justify-center items-center text-3xl font-bold relative"
+            [ squareBaseStyles
             , Attr.class
                 (if isSelectedField then
                     "transition-all border-4 border-cyan-400 text-cyan-400"

@@ -35,3 +35,13 @@ describing distance of a single move a piece, i.e. Horsie would be
   - [ ] "Time travel" to move back in move history
 - [ ] Skins for pieces
 - [ ] Logging of games to Humio
+
+
+## Feedback
+- Impossible states; `possibleMoves` cannot exist when there is no `selection`, `victory` cannot be set when there is a `selection`, etc.
+- Use `Browser.sandbox`
+- Too many computations in `viewSquare`
+  - A lot of them could probably be done once in `viewBoard`
+- A lot of variables become unused depending on `maybePiece` and `maybeMove`
+- Code would likely be more readable with less pattern matching if more things were done inside `viewPieceAndMove` instead of in `viewSquare`, like setting event handlers)
+- `... |> List.filter ... |> List.head` - implement `find` function
